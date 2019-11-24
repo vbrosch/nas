@@ -1,18 +1,48 @@
-import random
 import collections
+import random
+import time
+from typing import Optional
+
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import seaborn as sns
+import torch
+from torch import nn
+from torchsummary import summary
+
+from cifar10_loader import get_cifar10_sets
 
 DIM = 100  # Number of bits in the bit strings (i.e. the "models").
 NOISE_STDEV = 0.01  # Standard deviation of the simulated training noise.
+INPUT_DIM = (3, 28, 28)
+NUMBER_OF_NORMAL_CELLS_PER_STACK = 3
+NUMBER_OF_BLOCKS_PER_CELL = 5
 
+import torch.optim as optim
+
+criterion = nn.CrossEntropyLoss()
+
+NUM_EPOCHS = 25
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+train_loader, test_loader, classes = get_cifar10_sets()
+
+
+########################################################################
+
+
+
+########################################################################
 
 class Model(object):
+    normal_cell_arch: Optional[nn.Module]
+    reduction_cell_arch: Optional[nn.Module]
+
     """A class representing a model.
 
-    It holds two attributes: `arch` (the simulated architecture) and `accuracy`
-    (the simulated accuracy / fitness). See Appendix C for an introduction to
+    It holds two attributes: `arch` (the architecture) and `accuracy`
+    (the accuracy / fitness). See Appendix C for an introduction to
     this toy problem.
 
     In the real case of neural networks, `arch` would instead hold the
@@ -28,10 +58,8 @@ class Model(object):
     an "individual".
 
     Attributes:
-      arch: the architecture as an int representing a bit-string of length `DIM`.
-          As a result, the integers are required to be less than `2**DIM`. They
-          can be visualized as strings of 0s and 1s by calling `print(model)`,
-          where `model` is an instance of this class.
+      normal_cell_arch: the normal cell architecture
+      reduction_cell_arch: the reduction cell architecture
       accuracy:  the simulated validation accuracy. This is the sum of the
           bits in the bit-string, divided by DIM to produce a value in the
           interval [0.0, 1.0]. After that, a small amount of Gaussian noise is
@@ -44,45 +72,85 @@ class Model(object):
     """
 
     def __init__(self):
-        self.arch = None
+        self.normal_cell_arch = None
+        self.reduction_cell_arch = None
         self.accuracy = None
 
     def __str__(self):
-        """Prints a readable version of this bitstring."""
-        return '{0:b}'.format(self.arch)
+        """Returns a readable version of both architectures."""
+        normal_model = self.normal_cell_arch.to(device)
+        summary(normal_model, INPUT_DIM, device=device)
+
+        reduction_model = self.reduction_cell_arch.to(device)
+        summary(reduction_model, INPUT_DIM, device=device)
+
+    def build_architecture(self) -> nn.Module:
+        """
+        build the full network architecture
+        :return:
+        """
+        return None
 
 
-def train_and_eval(arch):
-    """Simulates training and evaluation.
-
-    Computes the simulated validation accuracy of the given architecture. See
-    the `accuracy` attribute in `Model` class for details.
+def train_and_eval(model: Model) -> float:
+    """
+    Train and evaluate the model
 
     Args:
-      arch: the architecture as an int representing a bit-string.
+      model: the model
     """
-    accuracy = float(_sum_bits(arch)) / float(DIM)
-    accuracy += random.gauss(mu=0.0, sigma=NOISE_STDEV)
-    accuracy = 0.0 if accuracy < 0.0 else accuracy
-    accuracy = 1.0 if accuracy > 1.0 else accuracy
+    net = model.build_architecture()
+    train_network(net)
+
+    accuracy = evaluate_architecture(net)
+
     return accuracy
 
 
-def _sum_bits(arch):
-    """Returns the number of 1s in the bit string.
-
-    Args:
-      arch: an int representing the bit string.
-    """
+def evaluate_architecture(net: nn.Module):
+    correct = 0
     total = 0
-    for _ in range(DIM):
-        total += arch & 1
-        arch = (arch >> 1)
-    return total
+    with torch.no_grad():
+        for data in test_loader:
+            images, labels = data
+            outputs = net(images)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    accuracy = correct / total
+    return accuracy
+
+
+def train_network(net: nn.Module):
+    optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+    start = time.perf_counter()
+    for epoch in range(NUM_EPOCHS):  # loop over the dataset multiple times
+        running_loss = 0.0
+        for i, data in enumerate(train_loader, 0):
+            # get the inputs; data is a list of [inputs, labels]
+            inputs, labels = data[0].to(device), data[1].to(device)
+
+            # zero the parameter gradients
+            optimizer.zero_grad()
+
+            # forward + backward + optimize
+            outputs = net(inputs)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+
+            # print statistics
+            running_loss += loss.item()
+            if i % 2000 == 1999:  # print every 2000 mini-batches
+                print('[%d, %5d] loss: %.3f' %
+                      (epoch + 1, i + 1, running_loss / 2000))
+                running_loss = 0.0
+    end = time.perf_counter()
+    print('Finished Training. It took: {}'.format((end - start)))
 
 
 def random_architecture():
-    """Returns a random architecture (bit-string) represented as an int."""
+    """Returns a random architecture."""
     return random.randint(0, 2 ** DIM - 1)
 
 
@@ -130,8 +198,8 @@ def regularized_evolution(cycles, population_size, sample_size):
     # Initialize the population with random models.
     while len(population) < population_size:
         model = Model()
-        model.arch = random_architecture()
-        model.accuracy = train_and_eval(model.arch)
+        model.normal_cell_arch = random_architecture()
+        model.accuracy = train_and_eval(model)
         population.append(model)
         history.append(model)
 
@@ -152,8 +220,8 @@ def regularized_evolution(cycles, population_size, sample_size):
 
         # Create the child model and store it.
         child = Model()
-        child.arch = mutate_arch(parent.arch)
-        child.accuracy = train_and_eval(child.arch)
+        child.normal_cell_arch = mutate_arch(parent)
+        child.accuracy = train_and_eval(child)
         population.append(child)
         history.append(child)
 
