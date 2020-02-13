@@ -20,9 +20,9 @@ from cifar10_loader import get_cifar10_sets
 DIM = 100  # Number of bits in the bit strings (i.e. the "models").
 NOISE_STDEV = 0.01  # Standard deviation of the simulated training noise.
 INPUT_DIM = (3, 28, 28)
-NUMBER_OF_NORMAL_CELLS_PER_STACK = 3
+NUMBER_OF_NORMAL_CELLS_PER_STACK = 1
 NUMBER_OF_BLOCKS_PER_CELL = 5
-NUMBER_OF_FILTERS = 32
+NUMBER_OF_FILTERS = 8
 
 FIRST_INPUT = 0
 SECOND_INPUT = 1
@@ -30,8 +30,7 @@ SECOND_INPUT = 1
 IN_CHANNELS = 3
 OUT_CHANNELS = 3
 
-STACK_COUNT = 3
-N = 6
+STACK_COUNT = 1
 
 import torch.optim as optim
 
@@ -86,10 +85,10 @@ def _get_input_channels(stack_num: int, input_block_num: int, increase_filters: 
     :param input_block_num: the num of the input block
     :return: input channels
     """
-    if input_block_num > 2 and increase_filters:
+    if input_block_num > 1 and increase_filters:
         stack_num += 1
 
-    return stack_num * NUMBER_OF_FILTERS if stack_num > 0 else IN_CHANNELS
+    return max(stack_num * NUMBER_OF_FILTERS, IN_CHANNELS)
 
 
 def _get_output_channels(stack_num: int, increase_filters: bool) -> int:
@@ -98,10 +97,11 @@ def _get_output_channels(stack_num: int, increase_filters: bool) -> int:
     :param stack_num: the stack num
     :return: output channels
     """
-    return (stack_num + 1) * NUMBER_OF_FILTERS if increase_filters else stack_num * NUMBER_OF_FILTERS
+    return (stack_num + 1) * NUMBER_OF_FILTERS if increase_filters else max(stack_num * NUMBER_OF_FILTERS, IN_CHANNELS)
 
 
-def _to_conv_operation(stack_num: int, block_num: int, increase_filters: bool, kernel_size: int, dilation: int = 1,
+def _to_conv_operation(stack_num: int, input_block_num: int, increase_filters: bool, kernel_size: int,
+                       dilation: int = 1,
                        groups: int = 1) -> nn.Module:
     """
     Creates a conv operation
@@ -109,7 +109,7 @@ def _to_conv_operation(stack_num: int, block_num: int, increase_filters: bool, k
     :param kernel_size: the kernel size
     :return: the module
     """
-    return Conv2d(_get_input_channels(stack_num, block_num, increase_filters),
+    return Conv2d(_get_input_channels(stack_num, input_block_num, increase_filters),
                   _get_output_channels(stack_num, increase_filters),
                   kernel_size,
                   dilation=dilation,
@@ -352,6 +352,16 @@ class Cell(nn.Module):
 
         output_blocks = set(range(NUMBER_OF_BLOCKS_PER_CELL + 2)) - set(block_used_as_input)
 
+        if len(output_blocks) > 1:
+            output_blocks_sorted = sorted(output_blocks, key=lambda x: tensors[x].shape, reverse=True)
+            reference_tensor = tensors[output_blocks_sorted[0]]
+
+            for t in output_blocks_sorted[1:]:
+                assert reference_tensor.shape >= tensors[t].shape
+
+                if reference_tensor.shape > tensors[t].shape:
+                    tensors[t] = _pad_tensor(tensors[t], reference_tensor)
+
         return torch.cat([tensors[i] for i in output_blocks])
 
 
@@ -412,9 +422,9 @@ class Model(nn.Module):
         build a normal stack
         :return:
         """
-        return [copy.deepcopy(self.normal_cell).build_ops(stack_num) for _ in range(N)]
+        return [copy.deepcopy(self.normal_cell).build_ops(stack_num) for _ in range(NUMBER_OF_NORMAL_CELLS_PER_STACK)]
 
-    def _reduction_cell(self, stack_num: int):
+    def _reduction_cell(self, stack_num: int) -> nn.Module:
         """
         get a reduction cell
         :return:
@@ -429,15 +439,15 @@ class Model(nn.Module):
         for module in self._forward_stack(0):
             self.cell_modules.append(module)
 
-        self.cell_modules.append(self._reduction_cell(0))
+        # self.cell_modules.append(self._reduction_cell(0))
 
-        for module in self._forward_stack(1):
-            self.cell_modules.append(module)
+        # for module in self._forward_stack(1):
+        #    self.cell_modules.append(module)
 
-        self.cell_modules.append(self._reduction_cell(1))
+        # self.cell_modules.append(self._reduction_cell(1))
 
-        for module in self._forward_stack(2):
-            self.cell_modules.append(module)
+        # for module in self._forward_stack(2):
+        #    self.cell_modules.append(module)
 
     def forward(self, input_x):
         """
