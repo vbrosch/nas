@@ -1,5 +1,6 @@
 import collections
 import copy
+import os
 import random
 import time
 from enum import Enum
@@ -14,6 +15,7 @@ from torch import nn
 import torch.nn.functional as F
 from torch.nn import Conv2d, AvgPool2d, MaxPool2d
 from torchsummary import summary
+from graphviz import Digraph
 
 from cifar10_loader import get_cifar10_sets
 
@@ -23,6 +25,7 @@ INPUT_DIM = (3, 28, 28)
 NUMBER_OF_NORMAL_CELLS_PER_STACK = 1
 NUMBER_OF_BLOCKS_PER_CELL = 5
 NUMBER_OF_FILTERS = 8
+GRAPH_OUTPUT_DIR = 'graphs/'
 
 FIRST_INPUT = 0
 SECOND_INPUT = 1
@@ -364,6 +367,50 @@ class Cell(nn.Module):
 
         return torch.cat([tensors[i] for i in output_blocks])
 
+    def to_graph(self) -> Digraph:
+        """
+        convert this block into a digraph
+        :return: the digraph
+        """
+        graph = Digraph()
+
+        block_color = 'chartreuse'
+        op_color = 'cadetblue1'
+
+        graph.node('block-0', 'Input 0', color=block_color, style='filled')
+        graph.node('block-1', 'Input 1', color=block_color, style='filled')
+
+        blocks_used_as_input = []
+
+        for b in self.blocks:
+            block: Block = b
+
+            first_input_op_node = 'block-{}-op-{}'.format(block.block_number, 1)
+            second_input_op_node = 'block-{}-op-{}'.format(block.block_number, 2)
+
+            graph.node(first_input_op_node, block.first_input_op.__str__(), color=op_color, style='filled')
+            graph.node(second_input_op_node, block.second_input_op.__str__(), color=op_color, style='filled')
+
+            graph.edge('block-{}'.format(block.first_input_block), first_input_op_node)
+            graph.edge('block-{}'.format(block.second_input_block), second_input_op_node)
+
+            graph.node('block-{}'.format(block.block_number), 'Block-{} [cat]'.format(block.block_number),
+                       color=block_color, style='filled')
+
+            graph.edge(first_input_op_node, 'block-{}'.format(block.block_number))
+            graph.edge(second_input_op_node, 'block-{}'.format(block.block_number))
+
+            blocks_used_as_input += [block.first_input_block, block.second_input_block]
+
+        outputs = list(set(range(len(self.blocks) + 2)) - set(blocks_used_as_input))
+
+        graph.node('output', 'Output', color=block_color, style='filled')
+
+        for output_block in outputs:
+            graph.edge('block-{}'.format(output_block), 'output')
+
+        return graph
+
 
 class Model(nn.Module):
     """A class representing a model.
@@ -473,6 +520,19 @@ class Model(nn.Module):
         cell_to_mutate: Cell = random.choice([self.normal_cell, self.reduction_cell])
         cell_to_mutate.mutate()
 
+    def save_graphs(self):
+        """
+        save a visualization
+        :return:
+        """
+        normal_cell_graph = self.normal_cell.to_graph()
+        normal_cell_graph.comment = 'Normal Cell'
+
+        if not os.path.exists(GRAPH_OUTPUT_DIR):
+            os.makedirs(GRAPH_OUTPUT_DIR)
+
+        normal_cell_graph.render('normal_cell', directory=GRAPH_OUTPUT_DIR)
+
 
 def train_and_eval(model: Model) -> float:
     """
@@ -482,6 +542,7 @@ def train_and_eval(model: Model) -> float:
       model: the model
     """
     summary(model, (3, 32, 32))
+    model.save_graphs()
 
     train_network(model)
     accuracy = evaluate_architecture(model)
