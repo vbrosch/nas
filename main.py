@@ -1,7 +1,9 @@
 import collections
+import copy
 import random
 import time
 from enum import Enum
+from math import floor, ceil
 from typing import Optional, List
 
 import matplotlib.pyplot as plt
@@ -20,15 +22,16 @@ NOISE_STDEV = 0.01  # Standard deviation of the simulated training noise.
 INPUT_DIM = (3, 28, 28)
 NUMBER_OF_NORMAL_CELLS_PER_STACK = 3
 NUMBER_OF_BLOCKS_PER_CELL = 5
+NUMBER_OF_FILTERS = 32
 
 FIRST_INPUT = 0
 SECOND_INPUT = 1
 
-IN_CHANNELS = 10
-OUT_CHANNELS = 10
+IN_CHANNELS = 3
+OUT_CHANNELS = 3
 
 STACK_COUNT = 3
-N = 10
+N = 6
 
 import torch.optim as optim
 
@@ -68,25 +71,61 @@ class MutationType(Enum):
     SWAP_OPERATION = 1
 
 
-def _get_new_random_input_block(block_number: int, other_input_number: int):
+def _get_new_random_input_block(block_number: int):
     """
     Get a new random input block
     :return: a random input block between 0 and NUMBER_OF_BLOCKS_PER_CELL + 2 (offset for the cells input)
     """
-    return random.choice(filter(lambda x: x < block_number and x != other_input_number,
-                                list(random.randrange(0, NUMBER_OF_BLOCKS_PER_CELL + 2))))
+    return random.choice(range(block_number))
 
 
-def _to_conv_operation(kernel_size: int, x: any, dilation: int = 1, groups: int = 1) -> any:
+def _get_input_channels(stack_num: int, input_block_num: int, increase_filters: bool) -> int:
+    """
+    get the input channels according to the stack num
+    :param stack_num: the stack num
+    :param input_block_num: the num of the input block
+    :return: input channels
+    """
+    if input_block_num > 2 and increase_filters:
+        stack_num += 1
+
+    return stack_num * NUMBER_OF_FILTERS if stack_num > 0 else IN_CHANNELS
+
+
+def _get_output_channels(stack_num: int, increase_filters: bool) -> int:
+    """
+    get the output channels according to the stack num
+    :param stack_num: the stack num
+    :return: output channels
+    """
+    return (stack_num + 1) * NUMBER_OF_FILTERS if increase_filters else stack_num * NUMBER_OF_FILTERS
+
+
+def _to_conv_operation(stack_num: int, block_num: int, increase_filters: bool, kernel_size: int, dilation: int = 1,
+                       groups: int = 1) -> nn.Module:
     """
     Creates a conv operation
+    :param stack_num: the stack to which this operation belongs. determines filter size.
     :param kernel_size: the kernel size
     :return: the module
     """
-    return F.relu(Conv2d(IN_CHANNELS, OUT_CHANNELS, kernel_size, dilation=dilation, groups=groups)(x))
+    return Conv2d(_get_input_channels(stack_num, block_num, increase_filters),
+                  _get_output_channels(stack_num, increase_filters),
+                  kernel_size,
+                  dilation=dilation,
+                  groups=groups)
 
 
-def _to_operation(operation: Operation, x: any) -> any:
+def _is_conv_operation(op: Operation) -> bool:
+    """
+    is a conv operation
+    :param op: the operation
+    :return: true if it is a conv operation, false if not
+    """
+    return op == Operation.CONV_SEP_3x3 or op == Operation.CONV_SEP_5x5 or op == Operation.CONV_SEP_7x7
+
+
+def _to_operation(operation: Operation, stack_num: int, input_block_num: int, increase_filters: bool) -> nn.Module:
     """
 
     :param operation:
@@ -94,44 +133,84 @@ def _to_operation(operation: Operation, x: any) -> any:
     :return:
     """
     if operation == Operation.IDENTITY:
-        return nn.Identity()(x)
+        return nn.Identity()
     if operation == Operation.CONV_SEP_3x3:
-        return _to_conv_operation(3, x)
+        return _to_conv_operation(stack_num, input_block_num, increase_filters, 3)
     if operation == Operation.CONV_SEP_5x5:
-        return _to_conv_operation(3, x)
+        return _to_conv_operation(stack_num, input_block_num, increase_filters, 5)
     if operation == Operation.CONV_SEP_7x7:
-        return _to_conv_operation(3, x)
+        return _to_conv_operation(stack_num, input_block_num, increase_filters, 7)
     if operation == Operation.DIL_CONV_SEP_3x3:
-        return _to_conv_operation(3, x, dilation=2, groups=2)
+        return _to_conv_operation(stack_num, input_block_num, increase_filters, 3, dilation=2)
     if operation == Operation.AVG_POOL_3x3:
-        return AvgPool2d(3)(x)
+        return AvgPool2d(3)
     if operation == Operation.MAX_POOL_3x3:
-        return MaxPool2d(3)(x)
+        return MaxPool2d(3)
     if operation == Operation.CONV_1x7_7x1:
-        return F.relu(Conv2d(IN_CHANNELS, OUT_CHANNELS, (7, 1))(Conv2d(IN_CHANNELS, OUT_CHANNELS, (1, 7))(x)))
+        return nn.Sequential(
+            Conv2d(_get_input_channels(stack_num, input_block_num, increase_filters),
+                   _get_output_channels(stack_num, increase_filters), (7, 1)),
+            Conv2d(_get_output_channels(stack_num, increase_filters), _get_output_channels(stack_num, increase_filters),
+                   (1, 7)))
 
 
-class Block(object):
+def _pad_tensor(a: torch.tensor, b: torch.tensor) -> torch.tensor:
+    """
+    pad the tensor
+    :param a: the first tensor (used for modification)
+    :param b: the second tensor (used for inserting)
+    :return: padded tensor with 0
+    """
+    assert a.shape < b.shape
+
+    dim_difference = []
+
+    for a_dim, b_dim in zip(a.shape, b.shape):
+        if a_dim != b_dim:
+            dim_difference.append(floor((b_dim - a_dim) / 2))
+            dim_difference.append(ceil((b_dim - a_dim) / 2))
+        else:
+            dim_difference.append(0)
+            dim_difference.append(0)
+
+    dim_difference.reverse()
+
+    c = torch.nn.functional.pad(a, dim_difference)
+
+    return c
+
+
+class Block(nn.Module):
     """
         Represents a block of a cell.
         A cell block combines two inputs via an operation into an output
     """
 
-    def __init__(self, number: int, first_input_block: int, second_input_block: int, operation: Operation):
+    def __init__(self, number: int):
         """
         Initializes this block with the given arguments
-        :param first_input_block: the first input of the block
-        :param second_input_block: the second input of the block
-        :param operation: the operation
         """
+        super(Block, self).__init__()
+
         self.block_number = number
-        self.first_input_block = first_input_block
+        self.first_input_block = _get_new_random_input_block(self.block_number)
         self.first_input_op = self._get_random_operation()
+        self.first_input_module: Optional[nn.Module] = None
 
-        self.second_input_block = second_input_block
+        self.second_input_block = _get_new_random_input_block(self.block_number)
         self.second_input_op = self._get_random_operation()
+        self.second_input_module: Optional[nn.Module] = None
 
-        self.operation = operation
+    def build_ops(self, stack_num: int, increase_filters: bool) -> None:
+        """
+        build the operations
+        :param stack_num: the stack number to which this cell belongs, determines the channels of Conv2d
+        :return: void
+        """
+        self.first_input_module = _to_operation(self.first_input_op, stack_num, self.first_input_block,
+                                                increase_filters)
+        self.second_input_module = _to_operation(self.second_input_op, stack_num, self.second_input_block,
+                                                 increase_filters)
 
     def mutate(self) -> None:
         """
@@ -153,9 +232,9 @@ class Block(object):
         inp = random.choice([FIRST_INPUT, SECOND_INPUT])
 
         if inp == FIRST_INPUT:
-            self.first_input_block = _get_new_random_input_block(self.block_number, self.second_input_block)
+            self.first_input_block = _get_new_random_input_block(self.block_number)
         else:
-            self.second_input_block = _get_new_random_input_block(self.block_number, self.first_input_block)
+            self.second_input_block = _get_new_random_input_block(self.block_number)
 
     @staticmethod
     def _get_random_operation() -> Operation:
@@ -184,24 +263,33 @@ class Block(object):
         else:
             self.second_input_op = self._get_random_operation()
 
-    def build(self, other_blocks: List[any]) -> any:
+    @staticmethod
+    def _apply_relu_if_conv(op: Operation, t: torch.tensor) -> torch.tensor:
         """
-        Converts this block into a pytorch module
-        :return: a pytorch module
+        Applies a relu if conv else pass through
+        :return:
         """
+        return F.relu(t) if _is_conv_operation(op) else t
 
-        input_a = other_blocks[self.first_input_block]
-        input_b = other_blocks[self.second_input_block]
+    def forward(self, input_a: torch.tensor, input_b: torch.tensor):
+        """
+        define a forward pass
+        :param input_b: the second input vector/tensor
+        :param input_a: the first input vector/tensor
+        :return: return
+        """
+        output_a: torch.tensor = self._apply_relu_if_conv(self.first_input_op, self.first_input_module(input_a))
+        output_b: torch.tensor = self._apply_relu_if_conv(self.second_input_op, self.second_input_module(input_b))
 
-        if input_a is None:
-            raise RuntimeError('Input_A cannot be none')
-        if input_b is None:
-            raise RuntimeError('Input_B cannot be none')
+        if output_b.shape < output_a.shape:
+            output_b = _pad_tensor(output_b, output_a)
+        elif output_a.shape < output_b.shape:
+            output_a = _pad_tensor(output_a, output_b)
 
-        return torch.cat((_to_operation(self.first_input_op, input_a), _to_operation(self.second_input_op, input_b)))
+        return torch.cat([output_a, output_b])
 
 
-class Cell(object):
+class Cell(nn.Module):
     """
         Either a reduction or a normal cell. The cell is a building block of our neural network architecture.
         A cell is a directed acyclic graph, where each node applies an operation to an input or a previous node.
@@ -213,7 +301,8 @@ class Cell(object):
         """
             Initializes a new instance of this cell
         """
-        self.blocks: List[Block] = []
+        super(Cell, self).__init__()
+        self.blocks: nn.ModuleList = nn.ModuleList([])
 
     def _get_random_block(self) -> Block:
         """
@@ -221,6 +310,18 @@ class Cell(object):
         :return: the block that was selected
         """
         return random.choice(self.blocks)
+
+    def build_ops(self, stack_num: int, increase_filters: bool = True) -> nn.Module:
+        """
+        build all block ops
+        :param stack_num: the stacks number
+        :return: void
+        """
+        for block in self.blocks:
+            b: Block = block
+            b.build_ops(stack_num, increase_filters)
+
+        return self
 
     def mutate(self):
         """
@@ -233,38 +334,28 @@ class Cell(object):
         b = self._get_random_block()
         b.mutate()
 
-    def build(self, x_0: any, x_1: any) -> any:
+    def forward(self, input_a: torch.tensor, input_b: torch.tensor):
         """
-        build a cell and convert
-        :return:
+        define a forward pass
+        :param input_a: the first input vector/tensor
+        :param input_b: the second input vector/tensor
+        :return: a tensor of all concatenated
         """
-
-        if x_0 is None:
-            raise RuntimeError('x_0 cannot be none')
-        if x_1 is None:
-            raise RuntimeError('x_1 cannot be none')
-
-        built_blocks = [x_0, x_1]
-        blocks_used_as_input = []
+        tensors = [input_a, input_b]
+        block_used_as_input = [0, 1]
 
         for block in self.blocks:
-            built_blocks.append(block.build(built_blocks))
-            blocks_used_as_input += [block.first_input_block, block.second_input_block]
+            block_output = block(tensors[block.first_input_block], tensors[block.second_input_block])
+            tensors.append(block_output)
 
-        # de-duplicate input list
-        blocks_used_as_input = list(set(blocks_used_as_input))
-        output_indices = filter(lambda x: x not in blocks_used_as_input, list(range(len(self.blocks))))
-        outputs = [built_blocks[o_i] for o_i in output_indices]
+            block_used_as_input += [block.first_input_block, block.second_input_block]
 
-        # concat all outputs
-        return torch.cat(outputs)
+        output_blocks = set(range(NUMBER_OF_BLOCKS_PER_CELL + 2)) - set(block_used_as_input)
+
+        return torch.cat([tensors[i] for i in output_blocks])
 
 
-class Model(object):
-    normal_cell: Optional[Cell] = None
-
-    reduction_cell: Optional[Cell] = None
-
+class Model(nn.Module):
     """A class representing a model.
 
     It holds two attributes: `arch` (the architecture) and `accuracy`
@@ -298,9 +389,15 @@ class Model(object):
     """
 
     def __init__(self):
-        self.normal_cell = None
-        self.reduction_cell = None
+        super(Model, self).__init__()
+
+        self.normal_cell: Optional[Cell] = None
+        self.reduction_cell: Optional[Cell] = None
         self.accuracy = None
+
+        self.cell_modules = nn.ModuleList([])
+
+        self._softmax_function = nn.Softmax(dim=1)
 
     def __str__(self):
         """Returns a readable version of both architectures."""
@@ -310,27 +407,53 @@ class Model(object):
         reduction_model = self.reduction_cell.to(device)
         summary(reduction_model, INPUT_DIM, device=device)
 
-    def _build_normal_stack(self, first_input: any, second_input: any) -> any:
+    def _forward_stack(self, stack_num: int) -> [nn.Module]:
         """
-        build a set of normal cells
-        :param first_input: the previous input
-        :param second_input: the other previous input
-        :return: a stack of cells
+        build a normal stack
+        :return:
         """
-        stack = []
+        return [copy.deepcopy(self.normal_cell).build_ops(stack_num) for _ in range(N)]
 
-        for n in range(N):
-            stack.append(self.normal_cell.build(stack[n - 1] if n > 0 else first_input, stack[n - 2] if n > 1 else second_input))
+    def _reduction_cell(self, stack_num: int):
+        """
+        get a reduction cell
+        :return:
+        """
+        return copy.deepcopy(self.reduction_cell).build_ops(stack_num, False)
 
-        return stack[-1]
+    def setup_modules(self) -> None:
+        """
+        build modules
+        :return:
+        """
+        for module in self._forward_stack(0):
+            self.cell_modules.append(module)
 
-    def build_architecture(self, input: ) -> any:
+        self.cell_modules.append(self._reduction_cell(0))
+
+        for module in self._forward_stack(1):
+            self.cell_modules.append(module)
+
+        self.cell_modules.append(self._reduction_cell(1))
+
+        for module in self._forward_stack(2):
+            self.cell_modules.append(module)
+
+    def forward(self, input_x):
         """
         build the full network architecture
         :return:
         """
-        for stack in range(STACK_COUNT):
-            normal_cell_stack = self._build_normal_stack()
+        penultimate_input = input_x
+        previous_input = input_x
+
+        for module in self.cell_modules:
+            out = module(penultimate_input, previous_input)
+
+            penultimate_input = previous_input
+            previous_input = out
+
+        return self._softmax_function(previous_input)
 
     def mutate(self) -> any:
         """
@@ -348,15 +471,20 @@ def train_and_eval(model: Model) -> float:
     Args:
       model: the model
     """
-    net = model.build_architecture()
-    train_network(net)
+    summary(model, (3, 32, 32))
 
-    accuracy = evaluate_architecture(net)
+    train_network(model)
+    accuracy = evaluate_architecture(model)
 
     return accuracy
 
 
-def evaluate_architecture(net: nn.Module):
+def evaluate_architecture(net: nn.Module) -> float:
+    """
+    evaluate the architecture performance
+    :param net: the network
+    :return: accuracy
+    """
     correct = 0
     total = 0
     with torch.no_grad():
@@ -371,13 +499,19 @@ def evaluate_architecture(net: nn.Module):
 
 
 def train_network(net: nn.Module):
+    """
+    Train the network on cifar 10
+    :param net: the network
+    :return:
+    """
     optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
     start = time.perf_counter()
     for epoch in range(NUM_EPOCHS):  # loop over the dataset multiple times
         running_loss = 0.0
         for i, data in enumerate(train_loader, 0):
             # get the inputs; data is a list of [inputs, labels]
-            inputs, labels = data[0].to(device), data[1].to(device)
+            # inputs, labels = data[0].to(device), data[1].to(device)
+            inputs, labels = data[0], data[1]
 
             # zero the parameter gradients
             optimizer.zero_grad()
@@ -398,29 +532,29 @@ def train_network(net: nn.Module):
     print('Finished Training. It took: {}'.format((end - start)))
 
 
-def random_architecture():
-    """Returns a random architecture."""
-    return random.randint(0, 2 ** DIM - 1)
+def random_cell() -> Cell:
+    """Returns a random cell with size B."""
+    cell = Cell()
+    for i in range(NUMBER_OF_BLOCKS_PER_CELL):
+        cell.blocks.append(Block(i + 2))
+
+    return cell
 
 
-def mutate_arch(parent_arch):
+def mutate_arch(parent_arch: Model):
     """Computes the architecture for a child of the given parent architecture.
 
     The parent architecture is cloned and mutated to produce the child
-    architecture. The child architecture is mutated by flipping a randomly chosen
-    bit in its bit-string.
+    architecture.
 
     Args:
-      parent_arch: an int representing the architecture (bit-string) of the
-          parent.
+      parent_arch: the model presenting the parent
 
     Returns:
       An int representing the architecture (bit-string) of the child.
     """
-    position = random.randint(0, DIM - 1)  # Index of the bit to flip.
-
-    # Flip the bit at position `position` in `child_arch`.
-    child_arch = parent_arch ^ (1 << position)
+    child_arch = copy.deepcopy(parent_arch)
+    child_arch.mutate()
 
     return child_arch
 
@@ -447,7 +581,10 @@ def regularized_evolution(cycles, population_size, sample_size):
     # Initialize the population with random models.
     while len(population) < population_size:
         model = Model()
-        model.normal_cell = random_architecture()
+        model.normal_cell = random_cell()
+        model.reduction_cell = random_cell()
+        model.setup_modules()
+
         model.accuracy = train_and_eval(model)
         population.append(model)
         history.append(model)
@@ -470,6 +607,7 @@ def regularized_evolution(cycles, population_size, sample_size):
         # Create the child model and store it.
         child = Model()
         child.normal_cell = mutate_arch(parent)
+        child.reduction_cell = mutate_arch(parent)
         child.accuracy = train_and_eval(child)
         population.append(child)
         history.append(child)

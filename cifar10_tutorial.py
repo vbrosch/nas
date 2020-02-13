@@ -115,24 +115,29 @@ import torch.nn.functional as F
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        self.conv1 = nn.Conv2d(3, 24, 5)
-        self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(24, 16, 5)
-        self.fc1 = nn.Linear(16 * 5 * 5, 120)
-        self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 10)
+        self.net_modules = nn.ModuleList([])
+
+    def setup_modules(self):
+        self.net_modules.append(nn.Conv2d(3, 12, 5))
+        self.net_modules.append(nn.MaxPool2d(2, 2))
+        self.net_modules.append(nn.Conv2d(3, 3, 5))
+        self.net_modules.append(nn.MaxPool2d(2, 2))
+        self.net_modules.append(nn.Linear(3 * 5 * 5, 120))
+        self.net_modules.append(nn.Linear(120, 84))
+        self.net_modules.append(nn.Linear(84, 10))
 
     def forward(self, x):
-        x = self.pool(F.relu(self.conv1(x)))
-        x = self.pool(F.relu(self.conv2(x)))
-        x = x.view(-1, 16 * 5 * 5)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
+        for i, module in enumerate(self.net_modules):
+            x = module(x)
+
+            if i == 3:
+                x = x.view(-1, 3 * 5 * 5)
+
         return x
 
 
 net = Net()
+net.setup_modules()
 net.to(device)
 
 summary(net, (3, 32, 32))
@@ -217,6 +222,7 @@ print('GroundTruth: ', ' '.join('%5s' % classes[labels[j]] for j in range(4)))
 # wasn't necessary here, we only did it to illustrate how to do so):
 
 net = Net()
+net.setup_modules()
 net.load_state_dict(torch.load(PATH))
 
 ########################################################################
