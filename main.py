@@ -36,9 +36,7 @@ def train_and_eval(model: Model) -> float:
       model: the model
     """
     model.to(device)
-
     summary(model, (3, 32, 32))
-    model.save_graphs()
 
     train_network(model)
     accuracy = evaluate_architecture(model)
@@ -150,6 +148,8 @@ def regularized_evolution(cycles, population_size, sample_size):
         model = Model()
         model.normal_cell = random_cell()
         model.reduction_cell = random_cell()
+        model.save_graphs()
+
         model.setup_modules()
 
         model.accuracy = train_and_eval(model)

@@ -49,7 +49,7 @@ class Model(nn.Module):
         self.reduction_cell: Optional[Cell] = None
         self.accuracy = None
 
-        self.cell_modules = nn.ModuleList([])
+        self.stack_modules = nn.ModuleList([])
 
         self._softmax_function = nn.Softmax(dim=1)
 
@@ -73,10 +73,10 @@ class Model(nn.Module):
         build modules
         :return:
         """
-        for module in self._forward_stack(0):
-            self.cell_modules.append(module)
 
-        # self.cell_modules.append(self._reduction_cell(1))
+        self.stack_modules.append(nn.ModuleList(self._forward_stack(0)))
+
+        # self.stack_modules.append(nn.ModuleList([self._reduction_cell(0)]))
 
         # for module in self._forward_stack(1):
         #    self.cell_modules.append(module)
@@ -94,8 +94,19 @@ class Model(nn.Module):
         penultimate_input = input_x
         previous_input = input_x
 
-        for module in self.cell_modules:
-            out = module(previous_input, penultimate_input)
+        for stack in self.stack_modules:
+            stack: nn.ModuleList = stack
+
+            penultimate_input_stack = penultimate_input
+            previous_input_stack = previous_input
+
+            out = None
+
+            for module in stack:
+                out = module(previous_input_stack, penultimate_input_stack)
+
+                penultimate_input_stack = previous_input_stack
+                previous_input_stack = out
 
             penultimate_input = previous_input
             previous_input = out
@@ -122,5 +133,5 @@ class Model(nn.Module):
 
         normal_cell_graph.render('normal_cell', directory=GRAPH_OUTPUT_DIR)
 
-        reduction_cell_graph = self.normal_cell.to_graph('Reduction Cell')
+        reduction_cell_graph = self.reduction_cell.to_graph('Reduction Cell')
         reduction_cell_graph.render('reduction_cell', directory=GRAPH_OUTPUT_DIR)
