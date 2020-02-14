@@ -1,5 +1,5 @@
 digraph {
-	graph [label="Normal Cell"]
+	graph [label="Reduction Cell"]
 	"block-0" [label="Input 0" color=chartreuse style=filled]
 	"block-1" [label="Input 1" color=chartreuse style=filled]
 	"block-2-op-1" [label="Operation.CONV_SEP_5x5" color=cadetblue1 style=filled]

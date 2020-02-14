@@ -1,0 +1,126 @@
+import copy
+import os
+from random import random
+from typing import Optional
+
+from torch import nn
+
+from modules.cell import Cell
+from search_space import GRAPH_OUTPUT_DIR, NUMBER_OF_NORMAL_CELLS_PER_STACK
+
+
+class Model(nn.Module):
+    """A class representing a model.
+
+    It holds two attributes: `arch` (the architecture) and `accuracy`
+    (the accuracy / fitness). See Appendix C for an introduction to
+    this toy problem.
+
+    In the real case of neural networks, `arch` would instead hold the
+    architecture of the normal and reduction cells of a neural network and
+    accuracy would be instead the result of training the neural net and
+    evaluating it on the validation set.
+
+    We do not include test accuracies here as they are not used by the algorithm
+    in any way. In the case of real neural networks, the test accuracy is only
+    used for the purpose of reporting / plotting final results.
+
+    In the context of evolutionary algorithms, a model is often referred to as
+    an "individual".
+
+    Attributes:
+      normal_cell: the normal cell architecture
+      reduction_cell: the reduction cell architecture
+      accuracy:  the simulated validation accuracy. This is the sum of the
+          bits in the bit-string, divided by DIM to produce a value in the
+          interval [0.0, 1.0]. After that, a small amount of Gaussian noise is
+          added with mean 0.0 and standard deviation `NOISE_STDEV`. The resulting
+          number is clipped to within [0.0, 1.0] to produce the final validation
+          accuracy of the model. A given model will have a fixed validation
+          accuracy but two models that have the same architecture will generally
+          have different validation accuracies due to this noise. In the context
+          of evolutionary algorithms, this is often known as the "fitness".
+    """
+
+    def __init__(self):
+        super(Model, self).__init__()
+
+        self.normal_cell: Optional[Cell] = None
+        self.reduction_cell: Optional[Cell] = None
+        self.accuracy = None
+
+        self.cell_modules = nn.ModuleList([])
+
+        self._softmax_function = nn.Softmax(dim=1)
+
+    def _forward_stack(self, stack_num: int) -> [nn.Module]:
+        """
+        build a normal stack
+        :return:
+        """
+        return [copy.deepcopy(self.normal_cell).build_ops(stack_num, pos, True) for pos in
+                range(NUMBER_OF_NORMAL_CELLS_PER_STACK)]
+
+    def _reduction_cell(self, stack_num: int) -> nn.Module:
+        """
+        get a reduction cell
+        :return:
+        """
+        return copy.deepcopy(self.reduction_cell).build_ops(stack_num, 0, False)
+
+    def setup_modules(self) -> None:
+        """
+        build modules
+        :return:
+        """
+        for module in self._forward_stack(0):
+            self.cell_modules.append(module)
+
+        # self.cell_modules.append(self._reduction_cell(1))
+
+        # for module in self._forward_stack(1):
+        #    self.cell_modules.append(module)
+
+        # self.cell_modules.append(self._reduction_cell(1))
+
+        # for module in self._forward_stack(2):
+        #    self.cell_modules.append(module)
+
+    def forward(self, input_x):
+        """
+        build the full network architecture
+        :return:
+        """
+        penultimate_input = input_x
+        previous_input = input_x
+
+        for module in self.cell_modules:
+            out = module(penultimate_input, previous_input)
+
+            penultimate_input = previous_input
+            previous_input = out
+
+        return self._softmax_function(previous_input)
+
+    def mutate(self) -> any:
+        """
+        Mutates this model by mutation of either one of the cells and returns a new model with the specific mutation
+        :return: the modified model
+        """
+        cell_to_mutate: Cell = random.choice([self.normal_cell, self.reduction_cell])
+        cell_to_mutate.mutate()
+
+    def save_graphs(self):
+        """
+        save a visualization
+        :return:
+        """
+        normal_cell_graph = self.normal_cell.to_graph('Normal Cell')
+
+        if not os.path.exists(GRAPH_OUTPUT_DIR):
+            os.makedirs(GRAPH_OUTPUT_DIR)
+
+        normal_cell_graph.render('normal_cell', directory=GRAPH_OUTPUT_DIR)
+
+        reduction_cell_graph = self.normal_cell.to_graph('Reduction Cell')
+        reduction_cell_graph.render('reduction_cell', directory=GRAPH_OUTPUT_DIR)
