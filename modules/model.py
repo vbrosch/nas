@@ -95,7 +95,7 @@ class Model(nn.Module):
         previous_input = input_x
 
         for module in self.cell_modules:
-            out = module(penultimate_input, previous_input)
+            out = module(previous_input, penultimate_input)
 
             penultimate_input = previous_input
             previous_input = out
