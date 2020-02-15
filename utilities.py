@@ -11,7 +11,17 @@ def _is_convolution(op: Operation) -> bool:
     :param op: the operation
     :return: true if it is a convolution operation, false if not
     """
-    return op == Operation.CONV_SEP_3x3 or op == Operation.CONV_SEP_5x5 or op == Operation.CONV_SEP_7x7
+    return op == Operation.CONV_SEP_3x3 or op == Operation.CONV_SEP_5x5 \
+           or op == Operation.CONV_SEP_7x7 or op == Operation.DIL_CONV_SEP_3x3
+
+
+def _is_pooling(op: Operation) -> bool:
+    """
+    checks if the operation is pooling
+    :param op: the operation
+    :return: true if the operation is a pooling operation, false if not
+    """
+    return op == Operation.MAX_POOL_3x3 or op == Operation.AVG_POOL_3x3
 
 
 def _pad_tensor(a: torch.tensor, b: torch.tensor) -> torch.tensor:

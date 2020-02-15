@@ -3,6 +3,7 @@ import os
 from random import random
 from typing import Optional
 
+import torch
 from torch import nn
 
 from modules.cell import Cell
@@ -91,8 +92,8 @@ class Model(nn.Module):
         build the full network architecture
         :return:
         """
-        penultimate_input = input_x
-        previous_input = input_x
+        penultimate_input: torch.tensor = input_x
+        previous_input: torch.tensor = input_x
 
         for stack in self.stack_modules:
             stack: nn.ModuleList = stack
@@ -103,6 +104,7 @@ class Model(nn.Module):
             out = None
 
             for module in stack:
+
                 out = module(previous_input_stack, penultimate_input_stack)
 
                 penultimate_input_stack = previous_input_stack

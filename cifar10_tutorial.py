@@ -115,23 +115,31 @@ import torch.nn.functional as F
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
+
+        self.conv1 = nn.Conv2d(3, 12, 5, stride=2, padding=0, padding_mode='reflection')
+        self.pool1 = nn.MaxPool2d(3)
+        self.conv2 = nn.Conv2d(12, 3, 5, padding=2, padding_mode='reflection')
+        self.pool2 = nn.MaxPool2d(3)
+
         self.net_modules = nn.ModuleList([])
 
     def setup_modules(self):
-        self.net_modules.append(nn.Conv2d(3, 12, 5))
-        self.net_modules.append(nn.MaxPool2d(2, 2))
-        self.net_modules.append(nn.Conv2d(3, 3, 5))
-        self.net_modules.append(nn.MaxPool2d(2, 2))
-        self.net_modules.append(nn.Linear(3 * 5 * 5, 120))
-        self.net_modules.append(nn.Linear(120, 84))
-        self.net_modules.append(nn.Linear(84, 10))
+        pass
+        # self.net_modules.append(nn.Conv2d(12, 24, 1))
+        # self.net_modules.append(nn.MaxPool2d(1, 1))
+        # self.net_modules.append(nn.Conv2d(3, 3, 5))
+        # self.net_modules.append(nn.MaxPool2d(2, 2))
+        # self.net_modules.append(nn.Linear(3 * 5 * 5, 120))
+        # self.net_modules.append(nn.Linear(120, 84))
+        # self.net_modules.append(nn.Linear(84, 10))
 
     def forward(self, x):
-        for i, module in enumerate(self.net_modules):
-            x = module(x)
-
-            if i == 3:
-                x = x.view(-1, 3 * 5 * 5)
+        x = F.relu(self.conv1(x))
+        print('X SHAPE BEFORE PAD: {}'.format(x.shape))
+        x = F.pad(x, [30, 30, 26, 26], mode='replicate')
+        x = self.pool1(x)
+        x = F.relu(self.conv2(x))
+        x = self.pool2(x)
 
         return x
 

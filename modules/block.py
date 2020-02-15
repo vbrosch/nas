@@ -8,7 +8,7 @@ from torch import nn
 from modules.module_factory import _to_operation
 from search_space import FIRST_INPUT, SECOND_INPUT, Operation
 from search_strategy import MutationType
-from utilities import _is_convolution, _pad_tensor
+from utilities import _is_convolution, _pad_tensor, _is_pooling
 
 
 def _get_new_random_input_block(block_number: int):
@@ -112,6 +112,18 @@ class Block(nn.Module):
         """
         return F.relu(t) if _is_convolution(op) else t
 
+    @staticmethod
+    def _pad_if_pooling(op: Operation, t: torch.tensor) -> torch.tensor:
+        """
+        Apply padding if pooling operation to remain constant sized tensor
+        :param op: the operation
+        :param t: the tensor
+        :return: padded tensor
+        """
+        if _is_pooling(op):
+            return F.pad(t, [t.shape[3], t.shape[3], t.shape[2], t.shape[2]], mode='replicate')
+        return t
+
     def forward(self, input_a: torch.tensor, input_b: torch.tensor):
         """
         define a forward pass
@@ -119,8 +131,10 @@ class Block(nn.Module):
         :param input_a: the first input vector/tensor
         :return: return
         """
-        output_a: torch.tensor = self._apply_relu_if_conv(self.first_input_op, self.first_input_module(input_a))
-        output_b: torch.tensor = self._apply_relu_if_conv(self.second_input_op, self.second_input_module(input_b))
+        output_a: torch.tensor = self._apply_relu_if_conv(self.first_input_op, self.first_input_module(
+            self._pad_if_pooling(self.first_input_op, input_a)))
+        output_b: torch.tensor = self._apply_relu_if_conv(self.second_input_op, self.second_input_module(
+            self._pad_if_pooling(self.second_input_op, input_b)))
 
         if output_b.shape < output_a.shape:
             output_b = _pad_tensor(output_b, output_a)

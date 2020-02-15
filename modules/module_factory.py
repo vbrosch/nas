@@ -80,7 +80,8 @@ def _get_output_channels(stack_num: int) -> int:
 def _get_convolution_module(stack_num: int, stack_pos: int, input_block_num: int,
                             is_normal_cell: bool, kernel_size: int,
                             dilation: int = 1,
-                            groups: int = 1) -> nn.Module:
+                            groups: int = 1,
+                            padding: int = 0) -> nn.Module:
     """
     Creates a conv operation
     :param stack_num: the stack to which this operation belongs. determines filter size.
@@ -90,7 +91,8 @@ def _get_convolution_module(stack_num: int, stack_pos: int, input_block_num: int
     in_channels = _get_input_channels(stack_num, stack_pos, input_block_num, is_normal_cell)
     out_channels = _get_output_channels(stack_num)
 
-    return Conv2d(in_channels, out_channels, kernel_size, dilation=dilation, groups=groups)
+    return Conv2d(in_channels, out_channels, kernel_size, dilation=dilation, groups=groups, padding=padding,
+                  padding_mode='reflection')
 
 
 def _to_operation(operation: Operation, stack_num: int, stack_pos: int, input_block_num: int,
@@ -109,11 +111,11 @@ def _to_operation(operation: Operation, stack_num: int, stack_pos: int, input_bl
     if operation == Operation.IDENTITY:
         return nn.Identity()
     if operation == Operation.CONV_SEP_3x3:
-        return _get_convolution_module(stack_num, stack_pos, input_block_num, is_normal_cell, 3)
+        return _get_convolution_module(stack_num, stack_pos, input_block_num, is_normal_cell, 3, padding=1)
     if operation == Operation.CONV_SEP_5x5:
-        return _get_convolution_module(stack_num, stack_pos, input_block_num, is_normal_cell, 5)
+        return _get_convolution_module(stack_num, stack_pos, input_block_num, is_normal_cell, 5, padding=2)
     if operation == Operation.CONV_SEP_7x7:
-        return _get_convolution_module(stack_num, stack_pos, input_block_num, is_normal_cell, 7)
+        return _get_convolution_module(stack_num, stack_pos, input_block_num, is_normal_cell, 7, padding=3)
     if operation == Operation.DIL_CONV_SEP_3x3:
         return _get_convolution_module(stack_num, stack_pos, input_block_num, is_normal_cell, 3, dilation=2)
     if operation == Operation.AVG_POOL_3x3:
