@@ -77,10 +77,9 @@ class Model(nn.Module):
 
         self.stack_modules.append(nn.ModuleList(self._forward_stack(0)))
 
-        # self.stack_modules.append(nn.ModuleList([self._reduction_cell(0)]))
+        self.stack_modules.append(nn.ModuleList([self._reduction_cell(0)]))
 
-        # for module in self._forward_stack(1):
-        #    self.cell_modules.append(module)
+        self.stack_modules.append(nn.ModuleList(self._forward_stack(1)))
 
         # self.cell_modules.append(self._reduction_cell(1))
 
@@ -104,7 +103,6 @@ class Model(nn.Module):
             out = None
 
             for module in stack:
-
                 out = module(previous_input_stack, penultimate_input_stack)
 
                 penultimate_input_stack = previous_input_stack

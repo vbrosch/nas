@@ -40,6 +40,8 @@ class Block(nn.Module):
         self.second_input_op = self._get_random_operation()
         self.second_input_module: Optional[nn.Module] = None
 
+        self.is_normal_cell: Optional[bool] = None
+
     def build_ops(self, stack_num: int, stack_pos: int, is_normal_cell: bool) -> None:
         """
         build the operations
@@ -48,6 +50,7 @@ class Block(nn.Module):
         :param stack_num: the stack number to which this block belongs, determines the channels of Conv2d
         :return: void
         """
+        self.is_normal_cell = is_normal_cell
         self.first_input_module = _to_operation(self.first_input_op, stack_num, stack_pos, self.first_input_block,
                                                 is_normal_cell)
         self.second_input_module = _to_operation(self.second_input_op, stack_num, stack_pos, self.second_input_block,
@@ -112,15 +115,14 @@ class Block(nn.Module):
         """
         return F.relu(t) if _is_convolution(op) else t
 
-    @staticmethod
-    def _pad_if_pooling(op: Operation, t: torch.tensor) -> torch.tensor:
+    def _pad_if_pooling(self, op: Operation, input_num: int, t: torch.tensor) -> torch.tensor:
         """
         Apply padding if pooling operation to remain constant sized tensor
         :param op: the operation
         :param t: the tensor
         :return: padded tensor
         """
-        if _is_pooling(op):
+        if _is_pooling(op) and (self.is_normal_cell or input_num > 1):
             return F.pad(t, [t.shape[3], t.shape[3], t.shape[2], t.shape[2]], mode='replicate')
         return t
 
@@ -132,9 +134,9 @@ class Block(nn.Module):
         :return: return
         """
         output_a: torch.tensor = self._apply_relu_if_conv(self.first_input_op, self.first_input_module(
-            self._pad_if_pooling(self.first_input_op, input_a)))
+            self._pad_if_pooling(self.first_input_op, self.first_input_block, input_a)))
         output_b: torch.tensor = self._apply_relu_if_conv(self.second_input_op, self.second_input_module(
-            self._pad_if_pooling(self.second_input_op, input_b)))
+            self._pad_if_pooling(self.second_input_op, self.second_input_block, input_b)))
 
         if output_b.shape < output_a.shape:
             output_b = _pad_tensor(output_b, output_a)

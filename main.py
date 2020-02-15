@@ -36,6 +36,7 @@ def train_and_eval(model: Model) -> float:
       model: the model
     """
     model.to(device)
+    print(model)
     summary(model, (3, 32, 32))
 
     train_network(model)
