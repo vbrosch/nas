@@ -123,7 +123,7 @@ class Block(nn.Module):
         :return: padded tensor
         """
         if _is_pooling(op) and (self.is_normal_cell or input_num > 1):
-            return F.pad(t, [t.shape[3], t.shape[3], t.shape[2], t.shape[2]], mode='replicate')
+            return F.pad(t, [1, 1, 1, 1], mode='replicate')
         return t
 
     def forward(self, input_a: torch.tensor, input_b: torch.tensor):

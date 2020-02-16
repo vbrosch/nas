@@ -7,7 +7,7 @@ import torch
 from torch import nn
 
 from modules.cell import Cell
-from search_space import GRAPH_OUTPUT_DIR, NUMBER_OF_NORMAL_CELLS_PER_STACK
+from search_space import GRAPH_OUTPUT_DIR, NUMBER_OF_NORMAL_CELLS_PER_STACK, STACK_COUNT
 
 
 class Model(nn.Module):
@@ -74,17 +74,11 @@ class Model(nn.Module):
         build modules
         :return:
         """
+        for i in range(STACK_COUNT):
+            self.stack_modules.append(nn.ModuleList(self._forward_stack(i)))
 
-        self.stack_modules.append(nn.ModuleList(self._forward_stack(0)))
-
-        self.stack_modules.append(nn.ModuleList([self._reduction_cell(0)]))
-
-        self.stack_modules.append(nn.ModuleList(self._forward_stack(1)))
-
-        # self.cell_modules.append(self._reduction_cell(1))
-
-        # for module in self._forward_stack(2):
-        #    self.cell_modules.append(module)
+            if i != STACK_COUNT - 1:
+                self.stack_modules.append(nn.ModuleList([self._reduction_cell(i)]))
 
     def forward(self, input_x):
         """

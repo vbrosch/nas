@@ -130,7 +130,7 @@ def _to_operation(operation: Operation, stack_num: int, stack_pos: int, input_bl
     if operation == Operation.CONV_SEP_7x7:
         return _get_convolution_module(stack_num, stack_pos, input_block_num, is_normal_cell, 7, padding=3)
     if operation == Operation.DIL_CONV_SEP_3x3:
-        return _get_convolution_module(stack_num, stack_pos, input_block_num, is_normal_cell, 3, padding=1, dilation=2)
+        return _get_convolution_module(stack_num, stack_pos, input_block_num, is_normal_cell, 3, padding=2, dilation=2)
     if operation == Operation.AVG_POOL_3x3:
         return AvgPool2d(3, stride=_get_stride(input_block_num, is_normal_cell))
     if operation == Operation.MAX_POOL_3x3:
