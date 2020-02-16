@@ -8,7 +8,7 @@ from torch import nn
 from modules.module_factory import _to_operation
 from search_space import FIRST_INPUT, SECOND_INPUT, Operation
 from search_strategy import MutationType
-from utilities import _is_convolution, _pad_tensor, _is_pooling
+from utilities import _is_convolution, _pad_tensor, _is_pooling, _align_tensor
 
 
 def _get_new_random_input_block(block_number: int):
@@ -142,10 +142,10 @@ class Block(nn.Module):
 
         is_first_input_dominant = self.first_input_block <= self.second_input_block
 
-        if output_b.shape < output_a.shape:
-            output_b = _pad_tensor(output_b, output_a)
-        elif output_a.shape < output_b.shape:
-            output_a = _pad_tensor(output_a, output_b)
+        if is_first_input_dominant:
+            output_b = _align_tensor(output_b, output_a)
+        else:
+            output_a = _align_tensor(output_a, output_b)
 
         out = output_a.add(output_b)
 
