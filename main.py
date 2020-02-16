@@ -36,8 +36,10 @@ def train_and_eval(model: Model) -> float:
       model: the model
     """
     model.to(device)
-    print(model)
+    # print(model)
     summary(model, (3, 32, 32))
+
+    exit(0)
 
     train_network(model)
     accuracy = evaluate_architecture(model)
@@ -78,6 +80,8 @@ def train_network(net: nn.Module):
             # get the inputs; data is a list of [inputs, labels]
             # inputs, labels = data[0].to(device), data[1].to(device)
             inputs, labels = data[0], data[1]
+
+            print(inputs.shape)
 
             # zero the parameter gradients
             optimizer.zero_grad()

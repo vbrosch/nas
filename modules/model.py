@@ -90,6 +90,8 @@ class Model(nn.Module):
         build the full network architecture
         :return:
         """
+        print('[MODEL] Initial Shape: {}'.format(input_x.shape))
+
         penultimate_input: torch.tensor = input_x
         previous_input: torch.tensor = input_x
 
@@ -110,13 +112,23 @@ class Model(nn.Module):
             penultimate_input = previous_input
             previous_input = out
 
-        x = previous_input.view(-1,
-                                _get_number_of_output_filters() * _get_image_size_in_last_stack() *
-                                _get_image_size_in_last_stack())
+        print('BEFORE VIEW: {}'.format(previous_input.shape))
+        dim = _get_number_of_output_filters() * _get_image_size_in_last_stack() * \
+              _get_image_size_in_last_stack()
+
+        print('output_filters={}'.format(_get_number_of_output_filters()))
+        print('_get_image_size_in_last_stack={}'.format(_get_image_size_in_last_stack()))
+        print('dim={}'.format(dim))
+
+        x = previous_input.view(-1, dim)
+
+        print('AFTER VIEW: {}'.format(x.shape))
 
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
+
+        print('[MODEL] After FC: {}'.format(x.shape))
 
         return x
 

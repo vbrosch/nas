@@ -10,7 +10,7 @@ def _get_image_size_in_last_stack() -> int:
     get the image size in the last stack
     :return: the product of the pixels in the last stack
     """
-    return int(INPUT_DIM / pow(0.5, STACK_COUNT - 1))
+    return int(INPUT_DIM * pow(0.5, STACK_COUNT - 1))
 
 
 def _get_number_of_output_filters() -> int:
@@ -40,6 +40,21 @@ def _is_pooling(op: Operation) -> bool:
     return op == Operation.MAX_POOL_3x3 or op == Operation.AVG_POOL_3x3
 
 
+def _align_tensor(a: torch.tensor, b: torch.tensor) -> torch.tensor:
+    """
+    align the tensors
+    :param a: the tensor that should be aligned (either padded or truncated)
+    :param b: the tensor that should be used as a master
+    :return: the aligned tensors
+    """
+    if a.shape == b.shape:
+        return a
+    elif a.shape < b.shape:
+        return _pad_tensor(a, b)
+    elif a.shape > b.shape:
+        return _truncate_tensor(a, b)
+
+
 def _pad_tensor(a: torch.tensor, b: torch.tensor) -> torch.tensor:
     """
     pad the tensor
@@ -64,3 +79,15 @@ def _pad_tensor(a: torch.tensor, b: torch.tensor) -> torch.tensor:
     c = torch.nn.functional.pad(a, dim_difference)
 
     return c
+
+
+def _truncate_tensor(a: torch.tensor, b: torch.tensor) -> torch.tensor:
+    """
+    truncate the tensor
+    :param a: the first tensor (used for modification)
+    :param b: the second tensor (used for truncation)
+    :return: the truncated / sliced tensor
+    """
+    assert a.shape > b.shape
+
+    return a[: b.shape[0], : b.shape[1], : b.shape[2], : b.shape[3]]

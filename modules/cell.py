@@ -63,8 +63,11 @@ class Cell(nn.Module):
         :param input_b: the second input vector/tensor
         :return: a tensor of all concatenated
         """
+
         tensors = [input_a, input_b]
         block_used_as_input = [0, 1]
+
+        print('CELL. IN1-DIM: {}. IN2-DIM: {}'.format(input_a.shape, input_b.shape))
 
         for block in self.blocks:
             block_output = block(tensors[block.first_input_block], tensors[block.second_input_block])
@@ -84,7 +87,14 @@ class Cell(nn.Module):
                 if reference_tensor.shape > tensors[t].shape:
                     tensors[t] = _pad_tensor(tensors[t], reference_tensor)
 
-        return torch.cat([tensors[i] for i in output_blocks])
+        out = tensors[list(output_blocks)[0]]
+
+        for o_b in list(output_blocks)[1:]:
+            out = out.add(tensors[o_b])
+
+        print('CELL-OUT. OUT: {}'.format(out.shape))
+
+        return out
 
     def to_graph(self, title: str) -> Digraph:
         """

@@ -129,18 +129,26 @@ class Block(nn.Module):
     def forward(self, input_a: torch.tensor, input_b: torch.tensor):
         """
         define a forward pass
-        :param input_b: the second input vector/tensor
         :param input_a: the first input vector/tensor
+        :param input_b: the second input vector/tensor
         :return: return
         """
+        print('BLOCK-{}. IN1-DIM: {}. IN2-DIM: {}'.format(self.block_number, input_a.shape, input_b.shape))
+
         output_a: torch.tensor = self._apply_relu_if_conv(self.first_input_op, self.first_input_module(
             self._pad_if_pooling(self.first_input_op, self.first_input_block, input_a)))
         output_b: torch.tensor = self._apply_relu_if_conv(self.second_input_op, self.second_input_module(
             self._pad_if_pooling(self.second_input_op, self.second_input_block, input_b)))
+
+        is_first_input_dominant = self.first_input_block <= self.second_input_block
 
         if output_b.shape < output_a.shape:
             output_b = _pad_tensor(output_b, output_a)
         elif output_a.shape < output_b.shape:
             output_a = _pad_tensor(output_a, output_b)
 
-        return torch.cat([output_a, output_b])
+        out = output_a.add(output_b)
+
+        print('BLOCK-{}. OUT={}'.format(self.block_number, out.shape))
+
+        return out

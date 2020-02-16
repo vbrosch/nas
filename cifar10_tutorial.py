@@ -115,23 +115,29 @@ import torch.nn.functional as F
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        self.conv1 = nn.Conv2d(3, 24, 5)
+        self.conv1 = nn.Conv2d(3, 24, 5, padding=2)
         self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(24, 16, 5)
-        self.fc1 = nn.Linear(16 * 5 * 5, 120)
+        self.conv2 = nn.Conv2d(24, 16, 5, padding=2)
+        self.fc1 = nn.Linear(16 * 32 * 32, 120)
         self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(84, 10)
 
     def forward(self, x):
-        x = self.pool(F.relu(self.conv1(x)))
-        x = self.pool(F.relu(self.conv2(x)))
+        print('INITIAL SHAPE: {}'.format(x.shape))
 
-        print('PRE-VIEW: {}'.format(x.shape))
-        x = x.view(-1, 16 * 5 * 5)
-        print('AFTER-VIEW: {}'.format(x.shape))
+        x = self.pool(F.pad(F.relu(self.conv1(x)), [16, 16, 16, 16]))
+        x = self.pool(F.pad(F.relu(self.conv2(x)), [16, 16, 16, 16]))
+
+        print('BEFORE VIEW: {}'.format(x.shape))
+        x = x.view(-1, 16 * 32 * 32)
+
+        print('AFTER VIEW: {}'.format(x.shape))
+
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
+
+        print('FINAL SHAPE: {}'.format(x.shape))
         return x
 
 
@@ -140,6 +146,8 @@ net = Net()
 net.to(device)
 
 summary(net, (3, 32, 32))
+
+exit(0)
 
 ########################################################################
 # 3. Define a Loss function and optimizer
