@@ -2,7 +2,23 @@ from math import floor, ceil
 
 import torch
 
-from search_space import Operation
+from search_space import Operation, NUMBER_OF_FILTERS, STACK_COUNT, INPUT_DIM
+
+
+def _get_image_size_in_last_stack() -> int:
+    """
+    get the image size in the last stack
+    :return: the product of the pixels in the last stack
+    """
+    return int(INPUT_DIM / pow(0.5, STACK_COUNT - 1))
+
+
+def _get_number_of_output_filters() -> int:
+    """
+    get the number of filters
+    :return: the number of filters
+    """
+    return NUMBER_OF_FILTERS * STACK_COUNT
 
 
 def _is_convolution(op: Operation) -> bool:

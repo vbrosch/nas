@@ -4,10 +4,12 @@ from random import random
 from typing import Optional
 
 import torch
+import torch.nn.functional as F
 from torch import nn
 
 from modules.cell import Cell
 from search_space import GRAPH_OUTPUT_DIR, NUMBER_OF_NORMAL_CELLS_PER_STACK, STACK_COUNT
+from utilities import _get_number_of_output_filters, _get_image_size_in_last_stack
 
 
 class Model(nn.Module):
@@ -52,7 +54,10 @@ class Model(nn.Module):
 
         self.stack_modules = nn.ModuleList([])
 
-        self._softmax_function = nn.Softmax(dim=1)
+        self.fc1 = nn.Linear(
+            _get_number_of_output_filters() * _get_image_size_in_last_stack() * _get_image_size_in_last_stack(), 120)
+        self.fc2 = nn.Linear(120, 84)
+        self.fc3 = nn.Linear(84, 10)
 
     def _forward_stack(self, stack_num: int) -> [nn.Module]:
         """
@@ -80,7 +85,7 @@ class Model(nn.Module):
             if i != STACK_COUNT - 1:
                 self.stack_modules.append(nn.ModuleList([self._reduction_cell(i)]))
 
-    def forward(self, input_x):
+    def forward(self, input_x) -> torch.tensor:
         """
         build the full network architecture
         :return:
@@ -105,7 +110,15 @@ class Model(nn.Module):
             penultimate_input = previous_input
             previous_input = out
 
-        return self._softmax_function(previous_input)
+        x = previous_input.view(-1,
+                                _get_number_of_output_filters() * _get_image_size_in_last_stack() *
+                                _get_image_size_in_last_stack())
+
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+
+        return x
 
     def mutate(self) -> any:
         """

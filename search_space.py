@@ -13,6 +13,8 @@ OUT_CHANNELS = 3
 
 STACK_COUNT = 2
 
+INPUT_DIM = 32
+
 
 class Operation(Enum):
     """
