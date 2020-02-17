@@ -83,9 +83,11 @@ class Model(nn.Module):
         for i in range(STACK_COUNT):
             # self.stack_modules.append(nn.ModuleList(self._forward_stack(i)))
             for cell in self._forward_stack(i):
+                cell_stack.append(cell)
 
             if i != STACK_COUNT - 1:
-                self.stack_modules.append(nn.ModuleList([self._reduction_cell(i)]))
+                cell_stack.append(self._reduction_cell(i))
+        self.stack_modules.append(cell_stack)
 
     def forward(self, input_x) -> torch.tensor:
         """
@@ -106,11 +108,13 @@ class Model(nn.Module):
 
             out = None
 
-            for module in stack:
+            for i, module in enumerate(stack):
+                print("[CELL] -- NEW CELL {} --".format(i))
                 out = module(previous_input_stack, penultimate_input_stack)
 
                 penultimate_input_stack = previous_input_stack
                 previous_input_stack = out
+                print("[CELL] -- END CELL {} --".format(i))
 
             penultimate_input = previous_input
             previous_input = out

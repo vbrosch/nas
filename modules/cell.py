@@ -48,7 +48,7 @@ class Cell(nn.Module):
             b.build_ops(stack_num, stack_pos, is_normal_cell, self.blocks[:i])
 
         self.expected_filter_size = _get_output_channels_of_normal_cell_stack(stack_num)
-        self.ensure_filter_size_convolution = nn.Conv2d(_get_in_channels_of_normal_cell_stack(stack_num - 1),
+        self.ensure_filter_size_convolution = nn.Conv2d(_get_output_channels_of_normal_cell_stack(stack_num - 1),
                                                         self.expected_filter_size, 1)
 
         return self

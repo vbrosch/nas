@@ -101,4 +101,8 @@ def _truncate_tensor(a: torch.tensor, b: torch.tensor) -> torch.tensor:
     """
     assert a.shape > b.shape
 
-    return a[: b.shape[0], : b.shape[1], : b.shape[2], : b.shape[3]]
+    c = a[: b.shape[0], : b.shape[1], : b.shape[2], : b.shape[3]]
+
+    if c.shape < b.shape:
+        return _pad_tensor(c, b)
+    return c
