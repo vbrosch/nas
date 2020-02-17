@@ -149,7 +149,7 @@ class Block(nn.Module):
         :param t: the tensor
         :return: padded tensor
         """
-        if _is_pooling(op) and (self.is_normal_cell or input_num > 1):
+        if _is_pooling(op):
             return F.pad(t, [1, 1, 1, 1], mode='replicate')
         return t
 

@@ -2,43 +2,43 @@ digraph {
 	graph [label="Normal Cell"]
 	"block-0" [label="Input 0" color=chartreuse style=filled]
 	"block-1" [label="Input 1" color=chartreuse style=filled]
-	"block-2-op-1" [label="Operation.DIL_CONV_SEP_3x3" color=cadetblue1 style=filled]
-	"block-2-op-2" [label="Operation.CONV_1x7_7x1" color=cadetblue1 style=filled]
-	"block-1" -> "block-2-op-1"
-	"block-1" -> "block-2-op-2"
+	"block-2-op-1" [label="Operation.CONV_SEP_7x7" color=cadetblue1 style=filled]
+	"block-2-op-2" [label="Operation.DIL_CONV_SEP_3x3" color=cadetblue1 style=filled]
+	"block-0" -> "block-2-op-1"
+	"block-0" -> "block-2-op-2"
 	"block-2" [label="Block-2 [cat]" color=chartreuse style=filled]
 	"block-2-op-1" -> "block-2"
 	"block-2-op-2" -> "block-2"
-	"block-3-op-1" [label="Operation.CONV_SEP_7x7" color=cadetblue1 style=filled]
+	"block-3-op-1" [label="Operation.IDENTITY" color=cadetblue1 style=filled]
 	"block-3-op-2" [label="Operation.CONV_1x7_7x1" color=cadetblue1 style=filled]
 	"block-0" -> "block-3-op-1"
-	"block-2" -> "block-3-op-2"
+	"block-1" -> "block-3-op-2"
 	"block-3" [label="Block-3 [cat]" color=chartreuse style=filled]
 	"block-3-op-1" -> "block-3"
 	"block-3-op-2" -> "block-3"
-	"block-4-op-1" [label="Operation.CONV_1x7_7x1" color=cadetblue1 style=filled]
-	"block-4-op-2" [label="Operation.CONV_1x7_7x1" color=cadetblue1 style=filled]
+	"block-4-op-1" [label="Operation.CONV_SEP_5x5" color=cadetblue1 style=filled]
+	"block-4-op-2" [label="Operation.IDENTITY" color=cadetblue1 style=filled]
 	"block-2" -> "block-4-op-1"
-	"block-2" -> "block-4-op-2"
+	"block-0" -> "block-4-op-2"
 	"block-4" [label="Block-4 [cat]" color=chartreuse style=filled]
 	"block-4-op-1" -> "block-4"
 	"block-4-op-2" -> "block-4"
-	"block-5-op-1" [label="Operation.CONV_SEP_5x5" color=cadetblue1 style=filled]
-	"block-5-op-2" [label="Operation.IDENTITY" color=cadetblue1 style=filled]
-	"block-4" -> "block-5-op-1"
+	"block-5-op-1" [label="Operation.CONV_SEP_7x7" color=cadetblue1 style=filled]
+	"block-5-op-2" [label="Operation.CONV_SEP_7x7" color=cadetblue1 style=filled]
+	"block-0" -> "block-5-op-1"
 	"block-1" -> "block-5-op-2"
 	"block-5" [label="Block-5 [cat]" color=chartreuse style=filled]
 	"block-5-op-1" -> "block-5"
 	"block-5-op-2" -> "block-5"
 	"block-6-op-1" [label="Operation.CONV_1x7_7x1" color=cadetblue1 style=filled]
-	"block-6-op-2" [label="Operation.MAX_POOL_3x3" color=cadetblue1 style=filled]
-	"block-1" -> "block-6-op-1"
+	"block-6-op-2" [label="Operation.DIL_CONV_SEP_3x3" color=cadetblue1 style=filled]
+	"block-5" -> "block-6-op-1"
 	"block-1" -> "block-6-op-2"
 	"block-6" [label="Block-6 [cat]" color=chartreuse style=filled]
 	"block-6-op-1" -> "block-6"
 	"block-6-op-2" -> "block-6"
 	output [label=Output color=chartreuse style=filled]
 	"block-3" -> output
-	"block-5" -> output
+	"block-4" -> output
 	"block-6" -> output
 }
