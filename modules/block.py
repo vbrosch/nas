@@ -8,7 +8,7 @@ from torch import nn
 from modules.module_factory import _to_operation
 from search_space import FIRST_INPUT, SECOND_INPUT, Operation
 from search_strategy import MutationType
-from utilities import _is_convolution, _pad_tensor, _is_pooling, _align_tensor
+from utilities import _is_convolution, _pad_tensor, _is_pooling, _align_tensor, _log
 
 
 def _get_new_random_input_block(block_number: int):
@@ -62,7 +62,7 @@ class Block(nn.Module):
 
         self.output_channels = first_output_channels if self._get_dominant_input() == 0 else second_output_channels
 
-        print("Block-{}. Output-Channel: {}".format(self.block_number, self.output_channels))
+        _log("Block-{}. Output-Channel: {}".format(self.block_number, self.output_channels))
 
     def mutate(self) -> None:
         """
@@ -141,10 +141,10 @@ class Block(nn.Module):
         in order to gain constant filter sizes, we are boosting convolutions.
         :return: 0 if the first input is dominant, 1 if the second
         """
-        if _is_convolution(self.first_input_op) and not _is_convolution(self.second_input_op):
-            return 0
-        elif not _is_convolution(self.first_input_op) and _is_convolution(self.second_input_op):
-            return 1
+        # if _is_convolution(self.first_input_op) and not _is_convolution(self.second_input_op):
+        #    return 0
+        # elif not _is_convolution(self.first_input_op) and _is_convolution(self.second_input_op):
+        #    return 1
 
         # TODO: Comment
         if self.first_input_block == 0 and self.second_input_block < 2:
@@ -161,20 +161,20 @@ class Block(nn.Module):
         :param input_b: the second input vector/tensor
         :return: return
         """
-        print('BLOCK-{}. IN1: {}, IN-DIM {}, OP1: {}'.format(self.block_number, self.first_input_block, input_a.shape,
-                                                             self.first_input_op))
-        print('BLOCK-{}. IN2: {}, IN-DIM {}, OP2: {}'.format(self.block_number, self.second_input_block, input_b.shape,
-                                                             self.second_input_op))
+        _log('BLOCK-{}. IN1: {}, IN-DIM {}, OP1: {}'.format(self.block_number, self.first_input_block, input_a.shape,
+                                                            self.first_input_op))
+        _log('BLOCK-{}. IN2: {}, IN-DIM {}, OP2: {}'.format(self.block_number, self.second_input_block, input_b.shape,
+                                                            self.second_input_op))
 
         output_a: torch.tensor = self._apply_relu_if_conv(self.first_input_op, self.first_input_module(
             self._pad_if_pooling(self.first_input_op, self.first_input_block, input_a)))
         output_b: torch.tensor = self._apply_relu_if_conv(self.second_input_op, self.second_input_module(
             self._pad_if_pooling(self.second_input_op, self.second_input_block, input_b)))
 
-        print('BLOCK-{}. IN1-DIM: {}, OP1: {}, OUTPUT1-DIM: {}'.format(self.block_number, self.first_input_block,
-                                                                       self.first_input_op, output_a.shape))
-        print('BLOCK-{}. IN2-DIM: {}, OP2: {}, OUTPUT2-DIM: {}'.format(self.block_number, self.second_input_block,
-                                                                       self.second_input_op, output_b.shape))
+        _log('BLOCK-{}. IN1-DIM: {}, OP1: {}, OUTPUT1-DIM: {}'.format(self.block_number, self.first_input_block,
+                                                                      self.first_input_op, output_a.shape))
+        _log('BLOCK-{}. IN2-DIM: {}, OP2: {}, OUTPUT2-DIM: {}'.format(self.block_number, self.second_input_block,
+                                                                      self.second_input_op, output_b.shape))
 
         # trying to set dominant input. The dominant input should be the block that is not a skip connection
         is_first_input_dominant = self._get_dominant_input() == 0
@@ -186,6 +186,6 @@ class Block(nn.Module):
 
         out = output_a.add(output_b)
 
-        print('BLOCK-{}. OUT={}'.format(self.block_number, out.shape))
+        _log('BLOCK-{}. OUT={}'.format(self.block_number, out.shape))
 
         return out

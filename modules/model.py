@@ -9,7 +9,7 @@ from torch import nn
 
 from modules.cell import Cell
 from search_space import GRAPH_OUTPUT_DIR, NUMBER_OF_NORMAL_CELLS_PER_STACK, STACK_COUNT
-from utilities import _get_number_of_output_filters, _get_image_size_in_last_stack
+from utilities import _get_number_of_output_filters, _get_image_size_in_last_stack, _log
 
 
 class Model(nn.Module):
@@ -79,8 +79,10 @@ class Model(nn.Module):
         build modules
         :return:
         """
+        cell_stack = nn.ModuleList()
         for i in range(STACK_COUNT):
-            self.stack_modules.append(nn.ModuleList(self._forward_stack(i)))
+            # self.stack_modules.append(nn.ModuleList(self._forward_stack(i)))
+            for cell in self._forward_stack(i):
 
             if i != STACK_COUNT - 1:
                 self.stack_modules.append(nn.ModuleList([self._reduction_cell(i)]))
@@ -90,13 +92,13 @@ class Model(nn.Module):
         build the full network architecture
         :return:
         """
-        print('[MODEL] Initial Shape: {}'.format(input_x.shape))
+        _log('[MODEL] Initial Shape: {}'.format(input_x.shape))
 
         penultimate_input: torch.tensor = input_x
         previous_input: torch.tensor = input_x
 
         for stack in self.stack_modules:
-            print("[MODEL] -- NEW STACK --")
+            _log("[MODEL] -- NEW STACK --")
             stack: nn.ModuleList = stack
 
             penultimate_input_stack = penultimate_input
@@ -114,23 +116,22 @@ class Model(nn.Module):
             previous_input = out
             print("[MODEL] -- END STACK --")
 
-        print('BEFORE VIEW: {}'.format(previous_input.shape))
-        dim = _get_number_of_output_filters() * _get_image_size_in_last_stack() * \
-              _get_image_size_in_last_stack()
+        _log('BEFORE VIEW: {}'.format(previous_input.shape))
+        dim = _get_number_of_output_filters() * _get_image_size_in_last_stack() * _get_image_size_in_last_stack()
 
-        print('output_filters={}'.format(_get_number_of_output_filters()))
-        print('_get_image_size_in_last_stack={}'.format(_get_image_size_in_last_stack()))
-        print('dim={}'.format(dim))
+        _log('output_filters={}'.format(_get_number_of_output_filters()))
+        _log('_get_image_size_in_last_stack={}'.format(_get_image_size_in_last_stack()))
+        _log('dim={}'.format(dim))
 
         x = previous_input.view(-1, dim)
 
-        print('AFTER VIEW: {}'.format(x.shape))
+        _log('AFTER VIEW: {}'.format(x.shape))
 
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
 
-        print('[MODEL] After FC: {}'.format(x.shape))
+        _log('[MODEL] After FC: {}'.format(x.shape))
 
         return x
 

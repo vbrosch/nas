@@ -116,7 +116,7 @@ class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
         self.conv1 = nn.Conv2d(3, 24, 5, padding=2)
-        self.pool = nn.MaxPool2d(2, 2)
+        self.pool = nn.MaxPool2d(3, stride=2, padding=1)
         self.conv2 = nn.Conv2d(24, 16, 5, padding=2)
         self.fc1 = nn.Linear(16 * 32 * 32, 120)
         self.fc2 = nn.Linear(120, 84)
@@ -125,7 +125,11 @@ class Net(nn.Module):
     def forward(self, x):
         print('INITIAL SHAPE: {}'.format(x.shape))
 
-        x = self.pool(F.pad(F.relu(self.conv1(x)), [16, 16, 16, 16]))
+        before_pool = F.relu(self.conv1(x))
+        print('Before_Pool: {}'.format(before_pool.shape))
+        x = self.pool(before_pool)
+        print('After Pool: {}'.format(x.shape))
+
         x = self.pool(F.pad(F.relu(self.conv2(x)), [16, 16, 16, 16]))
 
         print('BEFORE VIEW: {}'.format(x.shape))

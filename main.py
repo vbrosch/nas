@@ -10,11 +10,11 @@ import seaborn as sns
 import torch
 from torch import nn
 from torchsummary import summary
-
 import torch.optim as optim
 
+import config
 from cifar10_loader import get_cifar10_sets
-from config import device, NUM_EPOCHS
+from config import device, NUM_EPOCHS, VERBOSE
 from modules.block import Block
 from modules.cell import Cell
 from modules.model import Model
@@ -35,11 +35,14 @@ def train_and_eval(model: Model) -> float:
     Args:
       model: the model
     """
+    config.VERBOSE = True
     model.to(device)
-    # print(model)
+    print(model)
     summary(model, (3, 32, 32))
 
     exit(0)
+
+    config.VERBOSE = False
 
     train_network(model)
     accuracy = evaluate_architecture(model)
@@ -80,8 +83,6 @@ def train_network(net: nn.Module):
             # get the inputs; data is a list of [inputs, labels]
             # inputs, labels = data[0].to(device), data[1].to(device)
             inputs, labels = data[0], data[1]
-
-            print(inputs.shape)
 
             # zero the parameter gradients
             optimizer.zero_grad()

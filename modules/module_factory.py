@@ -101,6 +101,18 @@ def _get_stride(input_block_num: int, is_normal_cell: bool) -> int:
     return 2 if not is_normal_cell and (input_block_num == 0 or input_block_num == 1) else 1
 
 
+def _get_padding(input_block_num: int, is_normal_cell: bool) -> int:
+    """
+    Gets the stride. In normal cell, no padding is applied. In a reduction cell,
+    all operations in the blocks connected to the inputs use a padding of 1 to ensure that a kernel size 3x3 reduces
+    the dimensionality in half.
+    :param input_block_num: the input block number
+    :param is_normal_cell: flag that indicates if this cell is a normal cell. if false => reduction cell
+    :return: the stride
+    """
+    return 1 if not is_normal_cell and (input_block_num == 0 or input_block_num == 1) else 0
+
+
 def _get_convolution_module(stack_num: int, stack_pos: int, input_block_num: int,
                             is_normal_cell: bool, kernel_size: int,
                             previous_blocks: List[any],
@@ -155,9 +167,11 @@ def _to_operation(operation: Operation, stack_num: int, stack_pos: int, input_bl
         return _get_convolution_module(stack_num, stack_pos, input_block_num, is_normal_cell, 3, previous_blocks,
                                        padding=2, dilation=2), output_channels_more
     if operation == Operation.AVG_POOL_3x3:
-        return AvgPool2d(3, stride=_get_stride(input_block_num, is_normal_cell)), output_channels_eq
+        return AvgPool2d(3, stride=_get_stride(input_block_num, is_normal_cell),
+                         padding=_get_padding(input_block_num, is_normal_cell)), output_channels_eq
     if operation == Operation.MAX_POOL_3x3:
-        return MaxPool2d(3, stride=_get_stride(input_block_num, is_normal_cell)), output_channels_eq
+        return MaxPool2d(3, stride=_get_stride(input_block_num, is_normal_cell),
+                         padding=_get_padding(input_block_num, is_normal_cell)), output_channels_eq
     if operation == Operation.CONV_1x7_7x1:
         return nn.Sequential(
             Conv2d(_get_input_channels(stack_num, stack_pos, input_block_num, previous_blocks, is_normal_cell),

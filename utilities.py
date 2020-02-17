@@ -2,7 +2,18 @@ from math import floor, ceil
 
 import torch
 
+from config import VERBOSE
 from search_space import Operation, NUMBER_OF_FILTERS, STACK_COUNT, INPUT_DIM
+
+
+def _log(message: str) -> None:
+    """
+    log the message to stdout
+    :param message: the message
+    :return: void (None)
+    """
+    if VERBOSE:
+        print(message)
 
 
 def _get_image_size_in_last_stack() -> int:

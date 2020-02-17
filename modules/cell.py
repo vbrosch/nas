@@ -1,12 +1,14 @@
 import random
+from typing import Optional
 
 import torch
 from graphviz import Digraph
 from torch import nn
 
 from modules.block import Block
+from modules.module_factory import _get_in_channels_of_normal_cell_stack, _get_output_channels_of_normal_cell_stack
 from search_space import NUMBER_OF_BLOCKS_PER_CELL
-from utilities import _pad_tensor
+from utilities import _pad_tensor, _log
 
 
 class Cell(nn.Module):
@@ -23,6 +25,8 @@ class Cell(nn.Module):
         """
         super(Cell, self).__init__()
         self.blocks: nn.ModuleList = nn.ModuleList([])
+        self.expected_filter_size: Optional[int] = None
+        self.ensure_filter_size_convolution: Optional[nn.Conv2d] = None
 
     def _get_random_block(self) -> Block:
         """
@@ -42,6 +46,10 @@ class Cell(nn.Module):
         for i, block in enumerate(self.blocks):
             b: Block = block
             b.build_ops(stack_num, stack_pos, is_normal_cell, self.blocks[:i])
+
+        self.expected_filter_size = _get_output_channels_of_normal_cell_stack(stack_num)
+        self.ensure_filter_size_convolution = nn.Conv2d(_get_in_channels_of_normal_cell_stack(stack_num - 1),
+                                                        self.expected_filter_size, 1)
 
         return self
 
@@ -67,7 +75,7 @@ class Cell(nn.Module):
         tensors = [input_a, input_b]
         block_used_as_input = [0, 1]
 
-        print('CELL. IN1-DIM: {}. IN2-DIM: {}'.format(input_a.shape, input_b.shape))
+        _log('CELL. IN1-DIM: {}. IN2-DIM: {}'.format(input_a.shape, input_b.shape))
 
         for block in self.blocks:
             block_output = block(tensors[block.first_input_block], tensors[block.second_input_block])
@@ -92,7 +100,10 @@ class Cell(nn.Module):
         for o_b in list(output_blocks)[1:]:
             out = out.add(tensors[o_b])
 
-        print('CELL-OUT. OUT: {}'.format(out.shape))
+        if out.shape[1] != self.expected_filter_size:
+            out = self.ensure_filter_size_convolution(out)
+
+        _log('CELL-OUT. OUT: {}'.format(out.shape))
 
         return out
 
