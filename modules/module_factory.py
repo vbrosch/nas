@@ -1,3 +1,5 @@
+from typing import List
+
 from torch import nn
 from torch.nn import AvgPool2d, MaxPool2d, Conv2d
 
@@ -22,7 +24,8 @@ def _get_output_channels_of_normal_cell_stack(stack_num: int) -> int:
     return max((stack_num + 1) * NUMBER_OF_FILTERS, IN_CHANNELS)
 
 
-def _get_input_channels_normal_cell(stack_num: int, stack_pos: int, input_block_num: int) -> int:
+def _get_input_channels_normal_cell(stack_num: int, stack_pos: int, input_block_num: int,
+                                    previous_blocks: List[any]) -> int:
     """
     get the input channels of the convolution operation w.r.t. stack position, position inside the stack and input
     :param stack_num: determines to which stack this operation belongs
@@ -31,13 +34,20 @@ def _get_input_channels_normal_cell(stack_num: int, stack_pos: int, input_block_
             (0 = predecessor, 1 = pre-predecessor [via skip connection])
     :return: input channels
     """
-    if (stack_pos == 0 and (input_block_num == 0 or input_block_num == 1)) or (stack_pos == 1 and input_block_num == 1):
-        return _get_in_channels_of_normal_cell_stack(stack_num)
+    if input_block_num == 0 or input_block_num == 1:
+        if stack_pos == 0 or (stack_pos == 1 and input_block_num == 1):
+            return _get_in_channels_of_normal_cell_stack(stack_num)
+    # if (stack_pos == 0 and (input_block_num == 0 or input_block_num == 1))
+    # or (stack_pos == 1 and input_block_num == 1):
+    #    return _get_in_channels_of_normal_cell_stack(stack_num)
 
-    return _get_output_channels_of_normal_cell_stack(stack_num)
+    return previous_blocks[input_block_num - 2].output_channels
 
 
-def _get_input_channels_reduction_cell(stack_num: int, input_block_num: int) -> int:
+#    return _get_output_channels_of_normal_cell_stack(stack_num)
+
+
+def _get_input_channels_reduction_cell(stack_num: int, input_block_num: int, previous_blocks: List[any]) -> int:
     """
     get the input channels of the convolution operation w.r.t. stack position, position inside the stack and input
     :param stack_num: determines to which stack this operation belongs
@@ -47,11 +57,13 @@ def _get_input_channels_reduction_cell(stack_num: int, input_block_num: int) -> 
     """
     if input_block_num == 1:
         return _get_output_channels_of_normal_cell_stack(stack_num - 1)
+    elif input_block_num == 0:
+        return _get_output_channels_of_normal_cell_stack(stack_num)
 
-    return _get_output_channels_of_normal_cell_stack(stack_num)
+    return previous_blocks[input_block_num - 2].output_channels
 
 
-def _get_input_channels(stack_num: int, stack_pos: int, input_block_num: int,
+def _get_input_channels(stack_num: int, stack_pos: int, input_block_num: int, previous_blocks: List[any],
                         is_normal_cell: bool) -> int:
     """
     get the input channels of the convolution operation w.r.t. stack position, position inside the stack and input
@@ -59,13 +71,14 @@ def _get_input_channels(stack_num: int, stack_pos: int, input_block_num: int,
     :param stack_pos: determines the position of the operation inside the stack (only necessary for normal cells)
     :param input_block_num: the input block number of the operation
             (0 = predecessor, 1 = pre-predecessor [via skip connection])
+    :param previous_blocks: the previous blocks
     :param is_normal_cell: flag that determines if the operation belongs to a normal
             cell (true = normal cell, false = reduction cell)
     :return: input channels
     """
     if is_normal_cell:
-        return _get_input_channels_normal_cell(stack_num, stack_pos, input_block_num)
-    return _get_input_channels_reduction_cell(stack_num, input_block_num)
+        return _get_input_channels_normal_cell(stack_num, stack_pos, input_block_num, previous_blocks)
+    return _get_input_channels_reduction_cell(stack_num, input_block_num, previous_blocks)
 
 
 def _get_output_channels(stack_num: int) -> int:
@@ -90,6 +103,7 @@ def _get_stride(input_block_num: int, is_normal_cell: bool) -> int:
 
 def _get_convolution_module(stack_num: int, stack_pos: int, input_block_num: int,
                             is_normal_cell: bool, kernel_size: int,
+                            previous_blocks: List[any],
                             dilation: int = 1,
                             groups: int = 1,
                             padding: int = 0) -> nn.Module:
@@ -99,7 +113,7 @@ def _get_convolution_module(stack_num: int, stack_pos: int, input_block_num: int
     :param kernel_size: the kernel size
     :return: the module
     """
-    in_channels = _get_input_channels(stack_num, stack_pos, input_block_num, is_normal_cell)
+    in_channels = _get_input_channels(stack_num, stack_pos, input_block_num, previous_blocks, is_normal_cell)
     out_channels = _get_output_channels(stack_num)
     stride = _get_stride(input_block_num, is_normal_cell)
 
@@ -109,7 +123,7 @@ def _get_convolution_module(stack_num: int, stack_pos: int, input_block_num: int
 
 
 def _to_operation(operation: Operation, stack_num: int, stack_pos: int, input_block_num: int,
-                  is_normal_cell: bool) -> nn.Module:
+                  is_normal_cell: bool, previous_blocks: List[any]) -> (nn.Module, int):
     """
     Converts the operation label into a PyTorch module.
     :param operation: the chosen operation (from enum Operation)
@@ -119,26 +133,35 @@ def _to_operation(operation: Operation, stack_num: int, stack_pos: int, input_bl
             (0 = predecessor, 1 = pre-predecessor [via skip connection])
     :param is_normal_cell: flag that determines if the operation belongs to a normal
             cell (true = normal cell, false = reduction cell)
-    :return: the configured PyTorch module
+    :return: the configured PyTorch module and the number of output channels
     """
+
+    output_channels_eq = _get_input_channels(stack_num, stack_pos, input_block_num, previous_blocks,
+                                             is_normal_cell)
+    output_channels_more = _get_output_channels(stack_num)
+
     if operation == Operation.IDENTITY:
-        return nn.Identity()
+        return nn.Identity(), output_channels_eq
     if operation == Operation.CONV_SEP_3x3:
-        return _get_convolution_module(stack_num, stack_pos, input_block_num, is_normal_cell, 3, padding=1)
+        return _get_convolution_module(stack_num, stack_pos, input_block_num, is_normal_cell, 3, previous_blocks,
+                                       padding=1), output_channels_more
     if operation == Operation.CONV_SEP_5x5:
-        return _get_convolution_module(stack_num, stack_pos, input_block_num, is_normal_cell, 5, padding=2)
+        return _get_convolution_module(stack_num, stack_pos, input_block_num, is_normal_cell, 5, previous_blocks,
+                                       padding=2), output_channels_more
     if operation == Operation.CONV_SEP_7x7:
-        return _get_convolution_module(stack_num, stack_pos, input_block_num, is_normal_cell, 7, padding=3)
+        return _get_convolution_module(stack_num, stack_pos, input_block_num, is_normal_cell, 7, previous_blocks,
+                                       padding=3), output_channels_more
     if operation == Operation.DIL_CONV_SEP_3x3:
-        return _get_convolution_module(stack_num, stack_pos, input_block_num, is_normal_cell, 3, padding=2, dilation=2)
+        return _get_convolution_module(stack_num, stack_pos, input_block_num, is_normal_cell, 3, previous_blocks,
+                                       padding=2, dilation=2), output_channels_more
     if operation == Operation.AVG_POOL_3x3:
-        return AvgPool2d(3, stride=_get_stride(input_block_num, is_normal_cell))
+        return AvgPool2d(3, stride=_get_stride(input_block_num, is_normal_cell)), output_channels_eq
     if operation == Operation.MAX_POOL_3x3:
-        return MaxPool2d(3, stride=_get_stride(input_block_num, is_normal_cell))
+        return MaxPool2d(3, stride=_get_stride(input_block_num, is_normal_cell)), output_channels_eq
     if operation == Operation.CONV_1x7_7x1:
         return nn.Sequential(
-            Conv2d(_get_input_channels(stack_num, stack_pos, input_block_num, is_normal_cell),
+            Conv2d(_get_input_channels(stack_num, stack_pos, input_block_num, previous_blocks, is_normal_cell),
                    _get_output_channels(stack_num), (7, 1), padding=(3, 0), padding_mode='reflection'),
             Conv2d(_get_output_channels(stack_num), _get_output_channels(stack_num),
                    (1, 7), padding=(0, 3), stride=_get_stride(input_block_num, is_normal_cell),
-                   padding_mode='reflection'))
+                   padding_mode='reflection')), output_channels_more

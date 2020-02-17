@@ -28,7 +28,7 @@ def _is_convolution(op: Operation) -> bool:
     :return: true if it is a convolution operation, false if not
     """
     return op == Operation.CONV_SEP_3x3 or op == Operation.CONV_SEP_5x5 \
-           or op == Operation.CONV_SEP_7x7 or op == Operation.DIL_CONV_SEP_3x3
+           or op == Operation.CONV_SEP_7x7 or op == Operation.DIL_CONV_SEP_3x3 or op == Operation.CONV_1x7_7x1
 
 
 def _is_pooling(op: Operation) -> bool:

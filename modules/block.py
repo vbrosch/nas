@@ -1,5 +1,5 @@
 import random
-from typing import Optional
+from typing import Optional, List
 
 import torch
 import torch.nn.functional as F
@@ -40,9 +40,11 @@ class Block(nn.Module):
         self.second_input_op = self._get_random_operation()
         self.second_input_module: Optional[nn.Module] = None
 
+        self.output_channels = None
+
         self.is_normal_cell: Optional[bool] = None
 
-    def build_ops(self, stack_num: int, stack_pos: int, is_normal_cell: bool) -> None:
+    def build_ops(self, stack_num: int, stack_pos: int, is_normal_cell: bool, previous_blocks: List[any]) -> None:
         """
         build the operations
         :param is_normal_cell: whether the current cell is a normal cell
@@ -51,10 +53,16 @@ class Block(nn.Module):
         :return: void
         """
         self.is_normal_cell = is_normal_cell
-        self.first_input_module = _to_operation(self.first_input_op, stack_num, stack_pos, self.first_input_block,
-                                                is_normal_cell)
-        self.second_input_module = _to_operation(self.second_input_op, stack_num, stack_pos, self.second_input_block,
-                                                 is_normal_cell)
+        self.first_input_module, first_output_channels = _to_operation(self.first_input_op, stack_num, stack_pos,
+                                                                       self.first_input_block,
+                                                                       is_normal_cell, previous_blocks)
+        self.second_input_module, second_output_channels = _to_operation(self.second_input_op, stack_num, stack_pos,
+                                                                         self.second_input_block,
+                                                                         is_normal_cell, previous_blocks)
+
+        self.output_channels = first_output_channels if self._get_dominant_input() == 0 else second_output_channels
+
+        print("Block-{}. Output-Channel: {}".format(self.block_number, self.output_channels))
 
     def mutate(self) -> None:
         """
@@ -126,6 +134,26 @@ class Block(nn.Module):
             return F.pad(t, [1, 1, 1, 1], mode='replicate')
         return t
 
+    def _get_dominant_input(self) -> int:
+        """
+        get the number of the dominant input (0, 1), A input is considered dominant, if it is not a skip connection.
+        If both inputs are skip connections, we choose the input that is 'nearer' to the current block. Additionally,
+        in order to gain constant filter sizes, we are boosting convolutions.
+        :return: 0 if the first input is dominant, 1 if the second
+        """
+        if _is_convolution(self.first_input_op) and not _is_convolution(self.second_input_op):
+            return 0
+        elif not _is_convolution(self.first_input_op) and _is_convolution(self.second_input_op):
+            return 1
+
+        # TODO: Comment
+        if self.first_input_block == 0 and self.second_input_block < 2:
+            return 0
+        if self.second_input_block == 0 and self.first_input_block < 2:
+            return 1
+
+        return 0 if self.block_number - self.first_input_block <= self.block_number - self.second_input_block else 1
+
     def forward(self, input_a: torch.tensor, input_b: torch.tensor):
         """
         define a forward pass
@@ -133,14 +161,23 @@ class Block(nn.Module):
         :param input_b: the second input vector/tensor
         :return: return
         """
-        print('BLOCK-{}. IN1-DIM: {}. IN2-DIM: {}'.format(self.block_number, input_a.shape, input_b.shape))
+        print('BLOCK-{}. IN1: {}, IN-DIM {}, OP1: {}'.format(self.block_number, self.first_input_block, input_a.shape,
+                                                             self.first_input_op))
+        print('BLOCK-{}. IN2: {}, IN-DIM {}, OP2: {}'.format(self.block_number, self.second_input_block, input_b.shape,
+                                                             self.second_input_op))
 
         output_a: torch.tensor = self._apply_relu_if_conv(self.first_input_op, self.first_input_module(
             self._pad_if_pooling(self.first_input_op, self.first_input_block, input_a)))
         output_b: torch.tensor = self._apply_relu_if_conv(self.second_input_op, self.second_input_module(
             self._pad_if_pooling(self.second_input_op, self.second_input_block, input_b)))
 
-        is_first_input_dominant = self.first_input_block <= self.second_input_block
+        print('BLOCK-{}. IN1-DIM: {}, OP1: {}, OUTPUT1-DIM: {}'.format(self.block_number, self.first_input_block,
+                                                                       self.first_input_op, output_a.shape))
+        print('BLOCK-{}. IN2-DIM: {}, OP2: {}, OUTPUT2-DIM: {}'.format(self.block_number, self.second_input_block,
+                                                                       self.second_input_op, output_b.shape))
+
+        # trying to set dominant input. The dominant input should be the block that is not a skip connection
+        is_first_input_dominant = self._get_dominant_input() == 0
 
         if is_first_input_dominant:
             output_b = _align_tensor(output_b, output_a)

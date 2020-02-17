@@ -39,9 +39,9 @@ class Cell(nn.Module):
         :param stack_num: the stack number to which this block belongs, determines the channels of Conv2d
         :return: void
         """
-        for block in self.blocks:
+        for i, block in enumerate(self.blocks):
             b: Block = block
-            b.build_ops(stack_num, stack_pos, is_normal_cell)
+            b.build_ops(stack_num, stack_pos, is_normal_cell, self.blocks[:i])
 
         return self
 

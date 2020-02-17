@@ -96,6 +96,7 @@ class Model(nn.Module):
         previous_input: torch.tensor = input_x
 
         for stack in self.stack_modules:
+            print("[MODEL] -- NEW STACK --")
             stack: nn.ModuleList = stack
 
             penultimate_input_stack = penultimate_input
@@ -111,6 +112,7 @@ class Model(nn.Module):
 
             penultimate_input = previous_input
             previous_input = out
+            print("[MODEL] -- END STACK --")
 
         print('BEFORE VIEW: {}'.format(previous_input.shape))
         dim = _get_number_of_output_filters() * _get_image_size_in_last_stack() * \

@@ -39,6 +39,8 @@ def train_and_eval(model: Model) -> float:
     # print(model)
     summary(model, (3, 32, 32))
 
+    exit(0)
+
     train_network(model)
     accuracy = evaluate_architecture(model)
 
