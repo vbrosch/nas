@@ -40,8 +40,6 @@ def train_and_eval(model: Model) -> float:
     print(model)
     summary(model, (3, 32, 32))
 
-    exit(0)
-
     config.VERBOSE = False
 
     train_network(model)
@@ -95,7 +93,7 @@ def train_network(net: nn.Module):
 
             # print statistics
             running_loss += loss.item()
-            if i % 2000 == 1999:  # print every 2000 mini-batches
+            if i % 64 == 63:  # print every 2000 mini-batches
                 print('[%d, %5d] loss: %.3f' %
                       (epoch + 1, i + 1, running_loss / 2000))
                 running_loss = 0.0

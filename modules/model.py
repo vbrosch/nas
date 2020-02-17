@@ -109,16 +109,16 @@ class Model(nn.Module):
             out = None
 
             for i, module in enumerate(stack):
-                print("[CELL] -- NEW CELL {} --".format(i))
+                _log("[CELL] -- NEW CELL {} --".format(i))
                 out = module(previous_input_stack, penultimate_input_stack)
 
                 penultimate_input_stack = previous_input_stack
                 previous_input_stack = out
-                print("[CELL] -- END CELL {} --".format(i))
+                _log("[CELL] -- END CELL {} --".format(i))
 
             penultimate_input = previous_input
             previous_input = out
-            print("[MODEL] -- END STACK --")
+            _log("[MODEL] -- END STACK --")
 
         _log('BEFORE VIEW: {}'.format(previous_input.shape))
         dim = _get_number_of_output_filters() * _get_image_size_in_last_stack() * _get_image_size_in_last_stack()
