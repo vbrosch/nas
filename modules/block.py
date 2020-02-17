@@ -40,6 +40,9 @@ class Block(nn.Module):
         self.second_input_op = self._get_random_operation()
         self.second_input_module: Optional[nn.Module] = None
 
+        self.dominated_by_skip_connection = False
+        self.first_input_built_via_skip_connection = False
+        self.second_input_built_via_skip_connection = False
         self.output_channels = None
 
         self.is_normal_cell: Optional[bool] = None
@@ -60,6 +63,7 @@ class Block(nn.Module):
                                                                          self.second_input_block,
                                                                          is_normal_cell, previous_blocks)
 
+        self.dominated_by_skip_connection = self._is_dominated_by_skip_connection(previous_blocks)
         self.output_channels = first_output_channels if self._get_dominant_input() == 0 else second_output_channels
 
         _log("Block-{}. Output-Channel: {}".format(self.block_number, self.output_channels))
@@ -75,6 +79,21 @@ class Block(nn.Module):
             self._mutate_input()
         else:
             self._mutate_op()
+
+    def _is_dominated_by_skip_connection(self, previous_blocks: List[any]) -> bool:
+        """
+        if the output is dominated by the skip connection
+        :return:
+        """
+        # both inputs directly connected to skip connection
+        if self.first_input_block == 1 or self.first_input_block > 1 and previous_blocks[
+            self.first_input_block - 2].dominated_by_skip_connection:
+            self.first_input_built_via_skip_connection = True
+        if self.second_input_block == 1 or self.second_input_block > 1 and previous_blocks[
+            self.second_input_block - 2].dominated_by_skip_connection:
+            self.second_input_built_via_skip_connection = True
+
+        return self.first_input_built_via_skip_connection and self.second_input_built_via_skip_connection
 
     def _mutate_input(self):
         """
@@ -146,10 +165,9 @@ class Block(nn.Module):
         # elif not _is_convolution(self.first_input_op) and _is_convolution(self.second_input_op):
         #    return 1
 
-        # TODO: Comment
-        if self.first_input_block == 0 and self.second_input_block < 2:
+        if not self.first_input_built_via_skip_connection and self.second_input_built_via_skip_connection:
             return 0
-        if self.second_input_block == 0 and self.first_input_block < 2:
+        elif self.first_input_built_via_skip_connection and not self.second_input_built_via_skip_connection:
             return 1
 
         return 0 if self.block_number - self.first_input_block <= self.block_number - self.second_input_block else 1
@@ -161,10 +179,14 @@ class Block(nn.Module):
         :param input_b: the second input vector/tensor
         :return: return
         """
-        _log('BLOCK-{}. IN1: {}, IN-DIM {}, OP1: {}'.format(self.block_number, self.first_input_block, input_a.shape,
-                                                            self.first_input_op))
-        _log('BLOCK-{}. IN2: {}, IN-DIM {}, OP2: {}'.format(self.block_number, self.second_input_block, input_b.shape,
-                                                            self.second_input_op))
+        _log('BLOCK-{}. IN1: {}, IN-DIM {}, OP1: {}. SKIP = {}'.format(self.block_number, self.first_input_block,
+                                                                       input_a.shape,
+                                                                       self.first_input_op,
+                                                                       self.first_input_built_via_skip_connection))
+        _log('BLOCK-{}. IN2: {}, IN-DIM {}, OP2: {}. SKIP = {}'.format(self.block_number, self.second_input_block,
+                                                                       input_b.shape,
+                                                                       self.second_input_op,
+                                                                       self.second_input_built_via_skip_connection))
 
         output_a: torch.tensor = self._apply_relu_if_conv(self.first_input_op, self.first_input_module(
             self._pad_if_pooling(self.first_input_op, self.first_input_block, input_a)))
@@ -186,6 +208,6 @@ class Block(nn.Module):
 
         out = output_a.add(output_b)
 
-        _log('BLOCK-{}. OUT={}'.format(self.block_number, out.shape))
+        _log('BLOCK-{}. OUT={}. FIRST_DOM = {}'.format(self.block_number, out.shape, is_first_input_dominant))
 
         return out

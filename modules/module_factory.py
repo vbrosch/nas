@@ -37,6 +37,8 @@ def _get_input_channels_normal_cell(stack_num: int, stack_pos: int, input_block_
     if input_block_num == 0 or input_block_num == 1:
         if stack_pos == 0 or (stack_pos == 1 and input_block_num == 1):
             return _get_in_channels_of_normal_cell_stack(stack_num)
+        else:
+            return _get_output_channels_of_normal_cell_stack(stack_num)
     # if (stack_pos == 0 and (input_block_num == 0 or input_block_num == 1))
     # or (stack_pos == 1 and input_block_num == 1):
     #    return _get_in_channels_of_normal_cell_stack(stack_num)
@@ -55,9 +57,9 @@ def _get_input_channels_reduction_cell(stack_num: int, input_block_num: int, pre
             (0 = predecessor, 1 = pre-predecessor [via skip connection])
     :return: input channels
     """
-    if input_block_num == 1:
-        return _get_output_channels_of_normal_cell_stack(stack_num - 1)
-    elif input_block_num == 0:
+    # if input_block_num == 1:
+    #    return _get_output_channels_of_normal_cell_stack(stack_num - 1)
+    if input_block_num == 0 or input_block_num == 1:
         return _get_output_channels_of_normal_cell_stack(stack_num)
 
     return previous_blocks[input_block_num - 2].output_channels
@@ -98,7 +100,8 @@ def _get_stride(input_block_num: int, is_normal_cell: bool) -> int:
     :param is_normal_cell: flag that indicates if this cell is a normal cell. if false => reduction cell
     :return: the stride
     """
-    return 2 if not is_normal_cell and (input_block_num == 0 or input_block_num == 1) else 1
+    # return 2 if not is_normal_cell and (input_block_num == 0 or input_block_num == 1) else 1
+    return 1
 
 
 def _get_padding(input_block_num: int, is_normal_cell: bool) -> int:
@@ -110,7 +113,8 @@ def _get_padding(input_block_num: int, is_normal_cell: bool) -> int:
     :param is_normal_cell: flag that indicates if this cell is a normal cell. if false => reduction cell
     :return: the stride
     """
-    return 1 if not is_normal_cell and (input_block_num == 0 or input_block_num == 1) else 0
+    # return 1 if not is_normal_cell and (input_block_num == 0 or input_block_num == 1) else 0
+    return 0
 
 
 def _get_convolution_module(stack_num: int, stack_pos: int, input_block_num: int,

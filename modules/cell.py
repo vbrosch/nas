@@ -8,7 +8,7 @@ from torch import nn
 from modules.block import Block
 from modules.module_factory import _get_in_channels_of_normal_cell_stack, _get_output_channels_of_normal_cell_stack
 from search_space import NUMBER_OF_BLOCKS_PER_CELL
-from utilities import _pad_tensor, _log
+from utilities import _pad_tensor, _log, _align_tensor
 
 
 class Cell(nn.Module):
@@ -27,6 +27,7 @@ class Cell(nn.Module):
         self.blocks: nn.ModuleList = nn.ModuleList([])
         self.expected_filter_size: Optional[int] = None
         self.ensure_filter_size_convolution: Optional[nn.Conv2d] = None
+        self.reduction_cell_pooling: Optional[nn.AvgPool2d] = None
 
     def _get_random_block(self) -> Block:
         """
@@ -50,6 +51,7 @@ class Cell(nn.Module):
         self.expected_filter_size = _get_output_channels_of_normal_cell_stack(stack_num)
         self.ensure_filter_size_convolution = nn.Conv2d(_get_output_channels_of_normal_cell_stack(stack_num - 1),
                                                         self.expected_filter_size, 1)
+        self.reduction_cell_pooling = nn.MaxPool2d(2) if not is_normal_cell else None
 
         return self
 
@@ -86,22 +88,28 @@ class Cell(nn.Module):
         output_blocks = set(range(NUMBER_OF_BLOCKS_PER_CELL + 2)) - set(block_used_as_input)
 
         if len(output_blocks) > 1:
-            output_blocks_sorted = sorted(output_blocks, key=lambda x: tensors[x].shape, reverse=True)
-            reference_tensor = tensors[output_blocks_sorted[0]]
+            output_blocks_sorted = sorted(output_blocks, key=lambda x: tensors[x].shape,
+                                          reverse=True)
+            reference_tensor_idx = next(
+                (x for x in output_blocks_sorted if not self.blocks[x - 2].dominated_by_skip_connection),
+                output_blocks_sorted[0])
+            reference_tensor = tensors[reference_tensor_idx]
 
-            for t in output_blocks_sorted[1:]:
-                assert reference_tensor.shape >= tensors[t].shape
-
-                if reference_tensor.shape > tensors[t].shape:
-                    tensors[t] = _pad_tensor(tensors[t], reference_tensor)
+            for t in output_blocks_sorted:
+                if t != reference_tensor_idx:
+                    tensors[t] = _align_tensor(tensors[t], reference_tensor)
 
         out = tensors[list(output_blocks)[0]]
 
-        for o_b in list(output_blocks)[1:]:
+        for o_b in list(output_blocks):
             out = out.add(tensors[o_b])
 
         if out.shape[1] != self.expected_filter_size:
             out = self.ensure_filter_size_convolution(out)
+
+        # reduce dimensionality in half
+        if self.reduction_cell_pooling is not None:
+            out = self.reduction_cell_pooling(out)
 
         _log('CELL-OUT. OUT: {}'.format(out.shape))
 
