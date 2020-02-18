@@ -24,6 +24,8 @@ criterion = nn.CrossEntropyLoss()
 
 train_loader, test_loader, classes = get_cifar10_sets()
 
+print("Running on: {}".format(config.device))
+
 
 #######################################################################
 
@@ -59,11 +61,16 @@ def evaluate_architecture(net: nn.Module) -> float:
     with torch.no_grad():
         for data in test_loader:
             images, labels = data
+            images = images.to(device)
+            labels = labels.to(device)
             outputs = net(images)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
     accuracy = correct / total
+
+    print('The network achieved the following accuracy: {}'.format(accuracy))
+
     return accuracy
 
 
@@ -79,8 +86,8 @@ def train_network(net: nn.Module):
         running_loss = 0.0
         for i, data in enumerate(train_loader, 0):
             # get the inputs; data is a list of [inputs, labels]
-            # inputs, labels = data[0].to(device), data[1].to(device)
-            inputs, labels = data[0], data[1]
+            inputs, labels = data[0].to(device), data[1].to(device)
+            # inputs, labels = data[0], data[1]
 
             # zero the parameter gradients
             optimizer.zero_grad()
