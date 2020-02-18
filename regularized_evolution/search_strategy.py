@@ -79,7 +79,7 @@ def train_network(net: nn.Module):
     :param net: the network
     :return:
     """
-    optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.9)
+    optimizer = optim.SGD(net.parameters(), lr=0.00001, momentum=0.9)
     start = time.perf_counter()
     for epoch in range(NUM_EPOCHS):  # loop over the dataset multiple times
         running_loss = 0.0
