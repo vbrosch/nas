@@ -1,6 +1,5 @@
 import copy
 import os
-from random import random
 from typing import Optional
 
 import torch
@@ -138,14 +137,6 @@ class Model(nn.Module):
         _log('[MODEL] After FC: {}'.format(x.shape))
 
         return x
-
-    def mutate(self) -> any:
-        """
-        Mutates this model by mutation of either one of the cells and returns a new model with the specific mutation
-        :return: the modified model
-        """
-        cell_to_mutate: Cell = random.choice([self.normal_cell, self.reduction_cell])
-        cell_to_mutate.mutate()
 
     def save_graphs(self):
         """

@@ -1,23 +1,22 @@
 import collections
-import copy
 import random
 import time
-from enum import Enum
 
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import seaborn as sns
 import torch
+import torch.optim as optim
 from torch import nn
 from torchsummary import summary
-import torch.optim as optim
 
 import config
 from cifar10_loader import get_cifar10_sets
-from config import device, NUM_EPOCHS, VERBOSE
+from config import device, NUM_EPOCHS
 from modules.block import Block
 from modules.cell import Cell
 from modules.model import Model
+from regularized_evolution.mutations import mutate_model
 from search_space import NUMBER_OF_BLOCKS_PER_CELL
 
 criterion = nn.CrossEntropyLoss()
@@ -80,7 +79,7 @@ def train_network(net: nn.Module):
     :param net: the network
     :return:
     """
-    optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+    optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.9)
     start = time.perf_counter()
     for epoch in range(NUM_EPOCHS):  # loop over the dataset multiple times
         running_loss = 0.0
@@ -129,10 +128,7 @@ def mutate_arch(parent_arch: Model):
     Returns:
       An int representing the architecture (bit-string) of the child.
     """
-    child_arch = copy.deepcopy(parent_arch)
-    child_arch.mutate()
-
-    return child_arch
+    return mutate_model(parent_arch)
 
 
 def regularized_evolution(cycles, population_size, sample_size):
@@ -183,10 +179,7 @@ def regularized_evolution(cycles, population_size, sample_size):
         parent = max(sample, key=lambda i: i.accuracy)
 
         # Create the child model and store it.
-        child = Model()
-        child.normal_cell = mutate_arch(parent)
-        child.reduction_cell = mutate_arch(parent)
-        child.accuracy = train_and_eval(child)
+        child = mutate_arch(parent)
         population.append(child)
         history.append(child)
 
@@ -202,7 +195,7 @@ def main() -> None:
     :return: None
     """
     history = regularized_evolution(
-        cycles=1000, population_size=100, sample_size=10)
+        cycles=1000, population_size=10, sample_size=10)
     sns.set_style('white')
     x_values = range(len(history))
     y_values = [i.accuracy for i in history]
@@ -229,7 +222,3 @@ def main() -> None:
     sns.despine()
 
     plt.show()
-
-
-if __name__ == '__main__':
-    main()

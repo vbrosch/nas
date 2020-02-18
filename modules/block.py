@@ -6,12 +6,11 @@ import torch.nn.functional as F
 from torch import nn
 
 from modules.module_factory import _to_operation
-from search_space import FIRST_INPUT, SECOND_INPUT, Operation
-from search_strategy import MutationType
-from utilities import _is_convolution, _pad_tensor, _is_pooling, _align_tensor, _log
+from search_space import Operation
+from utilities import _is_convolution, _is_pooling, _align_tensor, _log
 
 
-def _get_new_random_input_block(block_number: int):
+def get_new_random_input_block(block_number: int):
     """
     Get a new random input block
     :return: a random input block between 0 and NUMBER_OF_BLOCKS_PER_CELL + 2 (offset for the cells input)
@@ -32,12 +31,12 @@ class Block(nn.Module):
         super(Block, self).__init__()
 
         self.block_number = number
-        self.first_input_block = _get_new_random_input_block(self.block_number)
-        self.first_input_op = self._get_random_operation()
+        self.first_input_block = get_new_random_input_block(self.block_number)
+        self.first_input_op = self.get_random_operation()
         self.first_input_module: Optional[nn.Module] = None
 
-        self.second_input_block = _get_new_random_input_block(self.block_number)
-        self.second_input_op = self._get_random_operation()
+        self.second_input_block = get_new_random_input_block(self.block_number)
+        self.second_input_op = self.get_random_operation()
         self.second_input_module: Optional[nn.Module] = None
 
         self.dominated_by_skip_connection = False
@@ -68,18 +67,6 @@ class Block(nn.Module):
 
         _log("Block-{}. Output-Channel: {}".format(self.block_number, self.output_channels))
 
-    def mutate(self) -> None:
-        """
-        Mutate this block by changing it's inputs or swapping it's operation
-        :return: None
-        """
-        mutation_type = random.choice(list(MutationType))
-
-        if mutation_type == MutationType.CHANGE_BLOCK_INPUT:
-            self._mutate_input()
-        else:
-            self._mutate_op()
-
     def _is_dominated_by_skip_connection(self, previous_blocks: List[any]) -> bool:
         """
         if the output is dominated by the skip connection
@@ -95,20 +82,8 @@ class Block(nn.Module):
 
         return self.first_input_built_via_skip_connection and self.second_input_built_via_skip_connection
 
-    def _mutate_input(self):
-        """
-        Mutate one of the inputs of the block
-        :return:
-        """
-        inp = random.choice([FIRST_INPUT, SECOND_INPUT])
-
-        if inp == FIRST_INPUT:
-            self.first_input_block = _get_new_random_input_block(self.block_number)
-        else:
-            self.second_input_block = _get_new_random_input_block(self.block_number)
-
     @staticmethod
-    def _get_random_operation() -> Operation:
+    def get_random_operation() -> Operation:
         """
         get a random operation
         :return: the random operation
@@ -122,18 +97,6 @@ class Block(nn.Module):
         """
         return self.first_input_block + self.second_input_block == 1
 
-    def _mutate_op(self):
-        """
-        Mutate the operation
-        :return: the
-        """
-        selected_input = random.randint(FIRST_INPUT, SECOND_INPUT)
-
-        if selected_input == FIRST_INPUT:
-            self.first_input_op = self._get_random_operation()
-        else:
-            self.second_input_op = self._get_random_operation()
-
     @staticmethod
     def _apply_relu_if_conv(op: Operation, t: torch.tensor) -> torch.tensor:
         """
@@ -142,7 +105,8 @@ class Block(nn.Module):
         """
         return F.relu(t) if _is_convolution(op) else t
 
-    def _pad_if_pooling(self, op: Operation, input_num: int, t: torch.tensor) -> torch.tensor:
+    @staticmethod
+    def _pad_if_pooling(op: Operation, t: torch.tensor) -> torch.tensor:
         """
         Apply padding if pooling operation to remain constant sized tensor
         :param op: the operation
@@ -189,9 +153,9 @@ class Block(nn.Module):
                                                                        self.second_input_built_via_skip_connection))
 
         output_a: torch.tensor = self._apply_relu_if_conv(self.first_input_op, self.first_input_module(
-            self._pad_if_pooling(self.first_input_op, self.first_input_block, input_a)))
+            self._pad_if_pooling(self.first_input_op, input_a)))
         output_b: torch.tensor = self._apply_relu_if_conv(self.second_input_op, self.second_input_module(
-            self._pad_if_pooling(self.second_input_op, self.second_input_block, input_b)))
+            self._pad_if_pooling(self.second_input_op, input_b)))
 
         _log('BLOCK-{}. IN1-DIM: {}, OP1: {}, OUTPUT1-DIM: {}'.format(self.block_number, self.first_input_block,
                                                                       self.first_input_op, output_a.shape))

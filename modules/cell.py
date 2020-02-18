@@ -1,4 +1,3 @@
-import random
 from typing import Optional
 
 import torch
@@ -6,9 +5,9 @@ from graphviz import Digraph
 from torch import nn
 
 from modules.block import Block
-from modules.module_factory import _get_in_channels_of_normal_cell_stack, _get_output_channels_of_normal_cell_stack
+from modules.module_factory import _get_output_channels_of_normal_cell_stack
 from search_space import NUMBER_OF_BLOCKS_PER_CELL
-from utilities import _pad_tensor, _log, _align_tensor
+from utilities import _log, _align_tensor
 
 
 class Cell(nn.Module):
@@ -29,13 +28,6 @@ class Cell(nn.Module):
         self.ensure_filter_size_convolution: Optional[nn.Conv2d] = None
         self.reduction_cell_pooling: Optional[nn.AvgPool2d] = None
 
-    def _get_random_block(self) -> Block:
-        """
-        get a block randomly
-        :return: the block that was selected
-        """
-        return random.choice(self.blocks)
-
     def build_ops(self, stack_num: int, stack_pos: int, is_normal_cell: bool) -> nn.Module:
         """
         build all block ops
@@ -54,17 +46,6 @@ class Cell(nn.Module):
         self.reduction_cell_pooling = nn.MaxPool2d(2) if not is_normal_cell else None
 
         return self
-
-    def mutate(self):
-        """
-        mutate the cell
-        :return:
-        """
-        if len(self.blocks) == 0:
-            raise RuntimeError('Cannot mutate empty block list.')
-
-        b = self._get_random_block()
-        b.mutate()
 
     def forward(self, input_a: torch.tensor, input_b: torch.tensor):
         """
