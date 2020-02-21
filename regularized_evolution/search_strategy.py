@@ -26,6 +26,8 @@ train_loader, test_loader, classes = get_cifar10_sets()
 
 print("Running on: {}".format(config.device))
 
+VISUALIZE = False
+
 
 #######################################################################
 
@@ -166,7 +168,9 @@ def regularized_evolution(cycles, population_size, sample_size):
         model = Model()
         model.normal_cell = random_cell()
         model.reduction_cell = random_cell()
-        model.save_graphs()
+
+        if VISUALIZE:
+            model.save_graphs()
 
         model.setup_modules()
 
@@ -238,10 +242,13 @@ def main() -> None:
     config.NUM_EPOCHS = args['num_epochs']
     config.OUTPUT_DIRECTORY = args['output_directory']
 
+    global VISUALIZE
+    VISUALIZE = args['visualize']
+
     history = regularized_evolution(
         cycles=args['cycles'], population_size=args['population_size'], sample_size=args['sample_size'])
 
-    if args['visualize']:
+    if VISUALIZE:
         sns.set_style('white')
         x_values = range(len(history))
         y_values = [i.accuracy for i in history]

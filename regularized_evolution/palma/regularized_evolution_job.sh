@@ -18,4 +18,5 @@ module load GCCcore
 module load Python/3.7.2
 module load fosscuda
 
+export PYTHONPATH=$(pwd)
 srun python3 regularized_evolution/main.py --cycles 100

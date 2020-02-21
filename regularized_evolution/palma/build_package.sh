@@ -13,6 +13,6 @@ cp ../../regularized_evolution/*.py $PACKAGE_DIR/regularized_evolution
 
 cp regularized_evolution_job.sh $PACKAGE_DIR
 
-# tar cfvz regularized_evaluation.tar.gz $PACKAGE_DIR
+tar cfvz regularized_evolution.tar.gz $PACKAGE_DIR
 
-# rm -r $PACKAGE_DIR
+rm -r $PACKAGE_DIR
