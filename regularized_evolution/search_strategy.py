@@ -1,3 +1,4 @@
+import argparse
 import collections
 import random
 import time
@@ -11,13 +12,13 @@ from torch import nn
 from torchsummary import summary
 
 import config
+import search_space
 from cifar10_loader import get_cifar10_sets
 from config import device, NUM_EPOCHS
 from modules.block import Block
 from modules.cell import Cell
 from modules.model import Model
 from regularized_evolution.mutations import mutate_model
-from search_space import NUMBER_OF_BLOCKS_PER_CELL
 
 criterion = nn.CrossEntropyLoss()
 
@@ -36,12 +37,9 @@ def train_and_eval(model: Model) -> float:
     Args:
       model: the model
     """
-    config.VERBOSE = True
     model.to(device)
-    print(model)
+    #    print(model)
     summary(model, (3, 32, 32))
-
-    config.VERBOSE = False
 
     train_network(model)
     accuracy = evaluate_architecture(model)
@@ -49,7 +47,7 @@ def train_and_eval(model: Model) -> float:
     return accuracy
 
 
-def evaluate_architecture(net: nn.Module) -> float:
+def evaluate_architecture(net: Model) -> float:
     """
     evaluate the architecture performance
     :param net: the network
@@ -68,7 +66,18 @@ def evaluate_architecture(net: nn.Module) -> float:
             correct += (predicted == labels).sum().item()
     accuracy = correct / total
 
+    print("---")
+
+    normal_cell_str = net.normal_cell.__str__()
+    reduction_cell_str = net.reduction_cell.__str__()
+
+    print('Normal: [{}], Reduction: [{}]'.format(normal_cell_str, reduction_cell_str))
     print('The network achieved the following accuracy: {}'.format(accuracy))
+
+    with open('{}/architectures.csv', 'a+') as fd:
+        fd.write('{} {},{}'.format(normal_cell_str, reduction_cell_str, accuracy))
+
+    print("---")
 
     return accuracy
 
@@ -81,6 +90,8 @@ def train_network(net: nn.Module):
     """
     optimizer = optim.SGD(net.parameters(), lr=0.00001, momentum=0.9)
     start = time.perf_counter()
+
+    print('Training architecture for {} epochs.'.format(NUM_EPOCHS))
     for epoch in range(NUM_EPOCHS):  # loop over the dataset multiple times
         running_loss = 0.0
         for i, data in enumerate(train_loader, 0):
@@ -110,7 +121,7 @@ def train_network(net: nn.Module):
 def random_cell() -> Cell:
     """Returns a random cell with size B."""
     cell = Cell()
-    for i in range(NUMBER_OF_BLOCKS_PER_CELL):
+    for i in range(search_space.NUMBER_OF_BLOCKS_PER_CELL):
         cell.blocks.append(Block(i + 2))
 
     return cell
@@ -189,36 +200,71 @@ def regularized_evolution(cycles, population_size, sample_size):
     return history
 
 
+def parse_args() -> dict:
+    """
+    parse the arguments
+    :return: the arguments
+    """
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--cycles', default=1000, type=int, help='the number of cycles the algorithm should run for.')
+    parser.add_argument('--population-size', default=100, type=int,
+                        help='the number of individuals to keep in the population.')
+    parser.add_argument('--sample-size', default=10, type=int,
+                        help='the number of individuals that should participate in each tournament.')
+    parser.add_argument('--cells-per-stack', default=2, type=int, help='The number of normal cells in a stack.')
+    parser.add_argument('--blocks-per-cell', default=5, type=int, help='The number of blocks in a cell.')
+    parser.add_argument('--number-of-filters', default=32, type=int, help='The number of filters the first cell.')
+    parser.add_argument('--visualize', default=False, action='store_true', help='If set, graphs will be created.')
+    parser.add_argument('--stack-count', default=3, type=int, help='The number of normal cell stacks.')
+    parser.add_argument('--output-directory', default='output', help='The output directory.')
+    parser.add_argument('--num-epochs', default=10, help='The number of epochs.')
+
+    return vars(parser.parse_args())
+
+
 def main() -> None:
     """
     main entrypoint
     :return: None
     """
-    history = regularized_evolution(
-        cycles=1000, population_size=10, sample_size=10)
-    sns.set_style('white')
-    x_values = range(len(history))
-    y_values = [i.accuracy for i in history]
-    ax = plt.gca()
-    ax.scatter(
-        x_values, y_values, marker='.', facecolor=(0.0, 0.0, 0.0),
-        edgecolor=(0.0, 0.0, 0.0), linewidth=1, s=1)
-    ax.xaxis.set_major_locator(ticker.LinearLocator(numticks=2))
-    ax.xaxis.set_major_formatter(ticker.ScalarFormatter())
-    ax.yaxis.set_major_locator(ticker.LinearLocator(numticks=2))
-    ax.yaxis.set_major_formatter(ticker.ScalarFormatter())
-    fig = plt.gcf()
-    fig.set_size_inches(8, 6)
-    fig.tight_layout()
-    ax.tick_params(
-        axis='x', which='both', bottom='on', top='off', labelbottom='on',
-        labeltop='off', labelsize=14, pad=10)
-    ax.tick_params(
-        axis='y', which='both', left='on', right='off', labelleft='on',
-        labelright='off', labelsize=14, pad=5)
-    plt.xlabel('Number of Models Evaluated', labelpad=-16, fontsize=16)
-    plt.ylabel('Accuracy', labelpad=-30, fontsize=16)
-    plt.xlim(0, 1000)
-    sns.despine()
+    args = parse_args()
 
-    plt.show()
+    search_space.NUMBER_OF_NORMAL_CELLS_PER_STACK = args['cells_per_stack']
+    search_space.NUMBER_OF_BLOCKS_PER_CELL = args['blocks_per_cell']
+    search_space.NUMBER_OF_FILTERS = args['number_of_filters']
+    search_space.STACK_COUNT = args['stack_count']
+
+    config.NUM_EPOCHS = args['num_epochs']
+    config.OUTPUT_DIRECTORY = args['output_directory']
+
+    history = regularized_evolution(
+        cycles=args['cycles'], population_size=args['population_size'], sample_size=args['sample_size'])
+
+    if args['visualize']:
+        sns.set_style('white')
+        x_values = range(len(history))
+        y_values = [i.accuracy for i in history]
+        ax = plt.gca()
+        ax.scatter(
+            x_values, y_values, marker='.', facecolor=(0.0, 0.0, 0.0),
+            edgecolor=(0.0, 0.0, 0.0), linewidth=1, s=1)
+        ax.xaxis.set_major_locator(ticker.LinearLocator(numticks=2))
+        ax.xaxis.set_major_formatter(ticker.ScalarFormatter())
+        ax.yaxis.set_major_locator(ticker.LinearLocator(numticks=2))
+        ax.yaxis.set_major_formatter(ticker.ScalarFormatter())
+        fig = plt.gcf()
+        fig.set_size_inches(8, 6)
+        fig.tight_layout()
+        ax.tick_params(
+            axis='x', which='both', bottom='on', top='off', labelbottom='on',
+            labeltop='off', labelsize=14, pad=10)
+        ax.tick_params(
+            axis='y', which='both', left='on', right='off', labelleft='on',
+            labelright='off', labelsize=14, pad=5)
+        plt.xlabel('Number of Models Evaluated', labelpad=-16, fontsize=16)
+        plt.ylabel('Accuracy', labelpad=-30, fontsize=16)
+        plt.xlim(0, 1000)
+        sns.despine()
+
+        plt.show()

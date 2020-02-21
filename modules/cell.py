@@ -6,7 +6,7 @@ from torch import nn
 
 from modules.block import Block
 from modules.module_factory import _get_output_channels_of_normal_cell_stack
-from search_space import NUMBER_OF_BLOCKS_PER_CELL
+import search_space
 from utilities import _log, _align_tensor
 
 
@@ -66,7 +66,7 @@ class Cell(nn.Module):
 
             block_used_as_input += [block.first_input_block, block.second_input_block]
 
-        output_blocks = set(range(NUMBER_OF_BLOCKS_PER_CELL + 2)) - set(block_used_as_input)
+        output_blocks = set(range(search_space.NUMBER_OF_BLOCKS_PER_CELL + 2)) - set(block_used_as_input)
 
         if len(output_blocks) > 1:
             output_blocks_sorted = sorted(output_blocks, key=lambda x: tensors[x].shape,
@@ -140,3 +140,11 @@ class Cell(nn.Module):
             graph.edge('block-{}'.format(output_block), 'output')
 
         return graph
+
+    def __str__(self):
+        """
+        Convert this cell into a string
+        :return: the architecture
+        """
+        block_strings = map(lambda x: x.__str__(), self.blocks)
+        return ' '.join(block_strings)

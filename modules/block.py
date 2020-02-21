@@ -175,3 +175,11 @@ class Block(nn.Module):
         _log('BLOCK-{}. OUT={}. FIRST_DOM = {}'.format(self.block_number, out.shape, is_first_input_dominant))
 
         return out
+
+    def __str__(self) -> str:
+        """
+        Convert the architecture into a string
+        :return: the block
+        """
+        return '{} {} {} {}'.format(self.first_input_block, self.first_input_op, self.second_input_block,
+                                    self.second_input_op)

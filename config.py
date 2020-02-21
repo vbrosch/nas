@@ -5,3 +5,4 @@ device = torch.device("cuda" if torch.cuda.is_available() and use_cuda else "cpu
 INPUT_DIM = (3, 28, 28)
 NUM_EPOCHS = 10
 VERBOSE = False
+OUTPUT_DIRECTORY = None

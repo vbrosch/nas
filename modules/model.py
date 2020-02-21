@@ -6,8 +6,9 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
+import search_space
 from modules.cell import Cell
-from search_space import GRAPH_OUTPUT_DIR, NUMBER_OF_NORMAL_CELLS_PER_STACK, STACK_COUNT
+from search_space import GRAPH_OUTPUT_DIR
 from utilities import _get_number_of_output_filters, _get_image_size_in_last_stack, _log
 
 
@@ -64,7 +65,7 @@ class Model(nn.Module):
         :return:
         """
         return [copy.deepcopy(self.normal_cell).build_ops(stack_num, pos, True) for pos in
-                range(NUMBER_OF_NORMAL_CELLS_PER_STACK)]
+                range(search_space.NUMBER_OF_NORMAL_CELLS_PER_STACK)]
 
     def _reduction_cell(self, stack_num: int) -> nn.Module:
         """
@@ -79,12 +80,12 @@ class Model(nn.Module):
         :return:
         """
         cell_stack = nn.ModuleList()
-        for i in range(STACK_COUNT):
+        for i in range(search_space.STACK_COUNT):
             # self.stack_modules.append(nn.ModuleList(self._forward_stack(i)))
             for cell in self._forward_stack(i):
                 cell_stack.append(cell)
 
-            if i != STACK_COUNT - 1:
+            if i != search_space.STACK_COUNT - 1:
                 cell_stack.append(self._reduction_cell(i))
         self.stack_modules.append(cell_stack)
 

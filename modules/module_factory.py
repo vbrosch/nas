@@ -3,7 +3,8 @@ from typing import List
 from torch import nn
 from torch.nn import AvgPool2d, MaxPool2d, Conv2d
 
-from search_space import NUMBER_OF_FILTERS, IN_CHANNELS, Operation
+import search_space
+from search_space import IN_CHANNELS, Operation
 
 
 def _get_in_channels_of_normal_cell_stack(stack_num: int) -> int:
@@ -12,7 +13,7 @@ def _get_in_channels_of_normal_cell_stack(stack_num: int) -> int:
     :param stack_num: the stacks number [0,STACK_COUNT)
     :return: the input channels
     """
-    return max(stack_num * NUMBER_OF_FILTERS, IN_CHANNELS)
+    return max(stack_num * search_space.NUMBER_OF_FILTERS, IN_CHANNELS)
 
 
 def _get_output_channels_of_normal_cell_stack(stack_num: int) -> int:
@@ -21,7 +22,7 @@ def _get_output_channels_of_normal_cell_stack(stack_num: int) -> int:
     :param stack_num: the stacks number [0,STACK_COUNT)
     :return: the output channels
     """
-    return max((stack_num + 1) * NUMBER_OF_FILTERS, IN_CHANNELS)
+    return max((stack_num + 1) * search_space.NUMBER_OF_FILTERS, IN_CHANNELS)
 
 
 def _get_input_channels_normal_cell(stack_num: int, stack_pos: int, input_block_num: int,
