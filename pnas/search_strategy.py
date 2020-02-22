@@ -227,7 +227,7 @@ def _train_surrogate_function(model: Surrogate, models: List[List[Model]], accur
 
             optimizer.step()
 
-        print('Ep {} Surrogate loss: {.6f}'.format(epoch, loss))
+        print('Ep {} Surrogate loss: {}'.format(epoch, loss))
 
         if epoch % 100 == 0:
             acc = _validate_surrogate_function(model, validate_queue)
