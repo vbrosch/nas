@@ -321,6 +321,7 @@ def progressive_neural_architecture_search(max_num_blocks: int, max_epochs: int,
     surrogate = Surrogate(SURROGATE_HIDDEN_SIZE, SURROGATE_LAYERS, SURROGATE_DROPOUT, SURROGATE_MLP_DROPOUT,
                           SURROGATE_MLP_LAYERS,
                           SURROGATE_MLP_HIDDEN_LAYERS)
+    surrogate.to(device)
 
     surrogate_optimizer = torch.optim.Adam(surrogate.parameters(), lr=SURROGATE_LR, weight_decay=SURROGATE_L2_REG)
 
