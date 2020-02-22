@@ -6,7 +6,9 @@ import torch
 
 from modules.block import Block
 from modules.cell import Cell
-from search_space import Operation, NUMBER_OF_BLOCKS_PER_CELL
+from search_space import Operation
+
+MAX_NUMBER_OF_BLOCKS_PER_CELL = 0
 
 
 def _pairwise_accuracy(la, lb):
@@ -55,7 +57,7 @@ def _get_vocabulary() -> Dict[str, int]:
     get the full vocabulary
     :return: the vocabulary
     """
-    vocabulary = [_get_input_word(i) for i in range(NUMBER_OF_BLOCKS_PER_CELL + 2)]
+    vocabulary = [_get_input_word(i) for i in range(MAX_NUMBER_OF_BLOCKS_PER_CELL + 2)]
     vocabulary += [_get_op_word(op) for op in list(Operation)]
 
     return {w: i for i, w in enumerate(vocabulary)}

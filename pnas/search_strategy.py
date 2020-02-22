@@ -1,24 +1,24 @@
 import os
-import shutil
 import sys
 import time
 from typing import Tuple, List
 
 import numpy as np
 import torch
-from torch import nn, optim
 import torch.nn.functional as F
+from torch import nn, optim
 from torch.utils.data import DataLoader
 from torchsummary import summary
 
 import config
 import search_space
 from cifar10_loader import get_cifar10_sets
-from config import device, INPUT_DIM
+from config import device
 from modules.cell import Cell
 from modules.model import Model
-from pnas.surrogate_function import Surrogate
+from pnas import pnas_utilities
 from pnas.pnas_utilities import _expand_cells, _get_normal_and_reduction_cells, PNASDataset, _pairwise_accuracy
+from pnas.surrogate_function import Surrogate
 
 RATIO = 0.9
 EPOCHS = 0
@@ -28,6 +28,7 @@ SURROGATE_EPOCHS = 250
 CHILD_LR_MAX = 1e-5
 CHILD_L2_REG = 3e-4
 
+SURROGATE_HIDDEN_SIZE = 64
 SURROGATE_DROPOUT = 0
 SURROGATE_MLP_DROPOUT = 0.1
 SURROGATE_MLP_LAYERS = 1
@@ -295,6 +296,7 @@ def progressive_neural_architecture_search(max_num_blocks: int, max_epochs: int,
                                            beam_size: int, normal_cells_per_stack: int, stack_count: int) -> List[
     Tuple[Cell, float]]:
     search_space.NUMBER_OF_BLOCKS_PER_CELL = 1
+    pnas_utilities.MAX_NUMBER_OF_BLOCKS_PER_CELL = max_num_blocks
     search_space.STACK_COUNT = stack_count
     search_space.NUMBER_OF_NORMAL_CELLS_PER_STACK = normal_cells_per_stack
     search_space.NUMBER_OF_FILTERS = number_of_filters_in_first_layer
@@ -302,9 +304,8 @@ def progressive_neural_architecture_search(max_num_blocks: int, max_epochs: int,
     global EPOCHS
     EPOCHS = max_epochs
 
-    cells = []
-    cells.append(_expand_cells([]))
-    cells[0] = cells[0][:8]
+    cells = [_expand_cells([])]
+    cells[0] = cells[0][:2]
     normal_and_reduction_cell_combinations = _get_normal_and_reduction_cells(cells[0])
 
     models = []
@@ -315,7 +316,8 @@ def progressive_neural_architecture_search(max_num_blocks: int, max_epochs: int,
     accuracies.append([train_and_evaluate_network(m) for m in models[0]])
     targets.append(_normalize_accuracy(accuracies[0]))
 
-    surrogate = Surrogate(SURROGATE_DROPOUT, SURROGATE_MLP_DROPOUT, SURROGATE_MLP_LAYERS, SURROGATE_MLP_HIDDEN_LAYERS)
+    surrogate = Surrogate(SURROGATE_HIDDEN_SIZE, SURROGATE_DROPOUT, SURROGATE_MLP_DROPOUT, SURROGATE_MLP_LAYERS,
+                          SURROGATE_MLP_HIDDEN_LAYERS)
 
     surrogate_optimizer = torch.optim.Adam(surrogate.parameters(), lr=SURROGATE_LR, weight_decay=SURROGATE_L2_REG)
 
