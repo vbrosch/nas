@@ -355,7 +355,9 @@ def progressive_neural_architecture_search(max_num_blocks: int, max_epochs: int,
 
 def main():
     config.OUTPUT_DIRECTORY = 'output'
-    os.makedirs(config.OUTPUT_DIRECTORY)
+
+    if not os.path.exists(config.OUTPUT_DIRECTORY):
+        os.makedirs(config.OUTPUT_DIRECTORY)
 
     print("Performing PNAS.")
     cell_accs = progressive_neural_architecture_search(5, 1, 32, search_space.NUMBER_OF_FILTERS,
