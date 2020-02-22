@@ -304,7 +304,7 @@ def progressive_neural_architecture_search(max_num_blocks: int, max_epochs: int,
     EPOCHS = max_epochs
 
     cells = [_expand_cells([])]
-    cells[0] = cells[0][:2]
+    cells[0] = cells[0][:32]
     normal_and_reduction_cell_combinations = _get_normal_and_reduction_cells(cells[0])
 
     models = []
