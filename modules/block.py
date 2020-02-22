@@ -181,5 +181,5 @@ class Block(nn.Module):
         Convert the architecture into a string
         :return: the block
         """
-        return '{} {} {} {}'.format(self.first_input_block, self.first_input_op, self.second_input_block,
-                                    self.second_input_op)
+        return '{} {} {} {}'.format(self.first_input_block, self.first_input_op.value, self.second_input_block,
+                                    self.second_input_op.value)
