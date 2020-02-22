@@ -1,6 +1,6 @@
 import copy
+import random
 from enum import Enum
-from random import random
 
 from modules.block import Block, get_new_random_input_block
 from modules.cell import Cell

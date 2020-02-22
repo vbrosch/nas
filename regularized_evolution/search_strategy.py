@@ -58,6 +58,7 @@ def evaluate_architecture(net: Model) -> float:
     correct = 0
     total = 0
     with torch.no_grad():
+        net.eval()
         for data in test_loader:
             images, labels = data
             images = images.to(device)
@@ -92,6 +93,8 @@ def train_network(net: nn.Module):
     """
     optimizer = optim.SGD(net.parameters(), lr=0.00001, momentum=0.9)
     start = time.perf_counter()
+
+    net.train()
 
     print('Training architecture for {} epochs.'.format(NUM_EPOCHS))
     for epoch in range(NUM_EPOCHS):  # loop over the dataset multiple times

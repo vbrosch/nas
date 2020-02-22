@@ -1,10 +1,27 @@
 import copy
 import itertools
-from typing import List, Dict
+from typing import List, Dict, Tuple
+
+import torch
 
 from modules.block import Block
 from modules.cell import Cell
 from search_space import Operation, NUMBER_OF_BLOCKS_PER_CELL
+
+
+def _pairwise_accuracy(la, lb):
+    n = len(la)
+    assert n == len(lb)
+    total = 0
+    count = 0
+    for i in range(n):
+        for j in range(i + 1, n):
+            if la[i] >= la[j] and lb[i] >= lb[j]:
+                count += 1
+            if la[i] < la[j] and lb[i] < lb[j]:
+                count += 1
+            total += 1
+    return float(count) / total
 
 
 def _get_input_word(input_num: int) -> str:
@@ -123,3 +140,44 @@ def _expand_cells(cells: List[Cell]) -> List[Cell]:
         return_cells += expanded_cells
 
     return return_cells
+
+
+def _get_normal_and_reduction_cells(cells: List[Cell]) -> List[Tuple[Cell, Cell]]:
+    """
+    get a pairwise combination of normal and reduction cells
+    :param cells: the cells
+    :return: normal and reduction cell combination
+    """
+    return [(cell, cell) for cell in cells]
+
+
+class PNASDataset(torch.utils.data.Dataset):
+    def __init__(self, inputs, targets=None, train=True):
+        super(PNASDataset, self).__init__()
+        if targets is not None:
+            assert len(inputs) == len(targets)
+        self.inputs = copy.deepcopy(inputs)
+        self.targets = copy.deepcopy(targets)
+        self.train = train
+
+    def __getitem__(self, index):
+        surrogate_input = self.inputs[index]
+        surrogate_target = None
+        if self.targets is not None:
+            surrogate_target = [self.targets[index]]
+        if self.train:
+            sample = {
+                'surrogate_input': torch.LongTensor(surrogate_input),
+                'surrogate_target': torch.FloatTensor(surrogate_target)
+            }
+        else:
+            sample = {
+                'surrogate_input': torch.LongTensor(surrogate_input),
+                'decoder_target': torch.LongTensor(surrogate_input),
+            }
+            if surrogate_target is not None:
+                sample['surrogate_target'] = torch.FloatTensor(surrogate_target)
+        return sample
+
+    def __len__(self):
+        return len(self.inputs)
