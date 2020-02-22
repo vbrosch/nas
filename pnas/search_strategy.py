@@ -28,6 +28,7 @@ SURROGATE_EPOCHS = 250
 CHILD_LR_MAX = 1e-5
 CHILD_L2_REG = 3e-4
 
+SURROGATE_LAYERS = 1
 SURROGATE_HIDDEN_SIZE = 64
 SURROGATE_DROPOUT = 0
 SURROGATE_MLP_DROPOUT = 0.1
@@ -316,7 +317,8 @@ def progressive_neural_architecture_search(max_num_blocks: int, max_epochs: int,
     accuracies.append([train_and_evaluate_network(m) for m in models[0]])
     targets.append(_normalize_accuracy(accuracies[0]))
 
-    surrogate = Surrogate(SURROGATE_HIDDEN_SIZE, SURROGATE_DROPOUT, SURROGATE_MLP_DROPOUT, SURROGATE_MLP_LAYERS,
+    surrogate = Surrogate(SURROGATE_HIDDEN_SIZE, SURROGATE_LAYERS, SURROGATE_DROPOUT, SURROGATE_MLP_DROPOUT,
+                          SURROGATE_MLP_LAYERS,
                           SURROGATE_MLP_HIDDEN_LAYERS)
 
     surrogate_optimizer = torch.optim.Adam(surrogate.parameters(), lr=SURROGATE_LR, weight_decay=SURROGATE_L2_REG)

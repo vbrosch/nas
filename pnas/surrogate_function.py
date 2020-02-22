@@ -12,9 +12,11 @@ class Surrogate(nn.Module):
         the surrogate model that learns to predict the accuracies of different cells
     """
 
-    def __init__(self, hidden_size: int, dropout: float, mlp_dropout: float, mlp_layers: int, mlp_hidden_size: int):
+    def __init__(self, hidden_size: int, layers: int, dropout: float, mlp_dropout: float, mlp_layers: int,
+                 mlp_hidden_size: int):
         super().__init__()
 
+        self.layers = layers
         self.hidden_size = hidden_size
         self.embedding = nn.Embedding(_get_vocabulary_size(), EMBEDDING_SIZE)
         self.rnn = nn.LSTM(self.hidden_size, self.hidden_size, self.layers, batch_first=True, dropout=dropout)
