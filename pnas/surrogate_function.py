@@ -44,7 +44,7 @@ class Surrogate(nn.Module):
         :param inp: the input tensor
         :return: the accuracy of the network
         """
-        x = self.Embedding(inp)
+        x = self.embedding(inp)
         out, _ = self.rnn(x)
 
         out = F.normalize(out, 2, dim=-1)
