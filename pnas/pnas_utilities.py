@@ -6,6 +6,7 @@ import torch
 
 from modules.block import Block
 from modules.cell import Cell
+from modules.model import Model
 from search_space import Operation
 
 MAX_NUMBER_OF_BLOCKS_PER_CELL = 0
@@ -151,6 +152,21 @@ def _get_normal_and_reduction_cells(cells: List[Cell]) -> List[Tuple[Cell, Cell]
     :return: normal and reduction cell combination
     """
     return [(cell, cell) for cell in cells]
+
+
+def _to_architecture_tensor(model: Model) -> List[int]:
+    """
+
+    :return:
+    """
+    normal_cell_tokens = model.normal_cell.__str__().split(' ')
+    reduction_cell_tokens = model.normal_cell.__str__().split(' ')
+
+    architecture_tokens = normal_cell_tokens + reduction_cell_tokens
+
+    tokens = [int(t) for t in architecture_tokens]
+
+    return tokens
 
 
 class PNASDataset(torch.utils.data.Dataset):

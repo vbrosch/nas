@@ -17,7 +17,8 @@ from config import device
 from modules.cell import Cell
 from modules.model import Model
 from pnas import pnas_utilities
-from pnas.pnas_utilities import _expand_cells, _get_normal_and_reduction_cells, PNASDataset, _pairwise_accuracy
+from pnas.pnas_utilities import _expand_cells, _get_normal_and_reduction_cells, PNASDataset, _pairwise_accuracy, \
+    _to_architecture_tensor
 from pnas.surrogate_function import Surrogate
 
 RATIO = 0.9
@@ -145,7 +146,7 @@ def _build_datasets(models: List[List[Model]], targets: List[List[float]]) -> (D
 
     for i in range(len(models)):
         model_accuracies.extend(
-            zip([m.normal_cell.__str__() + m.reduction_cell.__str__() for m in models[i]], targets[i]))
+            zip([_to_architecture_tensor(m) for m in models[i]], targets[i]))
 
     np.random.shuffle(model_accuracies)
 
