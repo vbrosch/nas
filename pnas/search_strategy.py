@@ -211,11 +211,8 @@ def _train_surrogate_function(model: Surrogate, models: List[List[Model]], accur
 
     for epoch in range(SURROGATE_EPOCHS):
         for step, sample in enumerate(train_queue):
-            surrogate_input = sample['surrogate_input']
-            surrogate_target = sample['surrogate_target']
-
-            surrogate_input.to(device)
-            surrogate_target.to(device)
+            surrogate_input = sample['surrogate_input'].to(device)
+            surrogate_target = sample['surrogate_target'].to(device)
 
             optimizer.zero_grad()
             predict_value = model(surrogate_input)
