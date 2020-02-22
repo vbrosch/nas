@@ -50,6 +50,8 @@ def train_and_evaluate_network(net: Model) -> float:
     :return:
     """
     net.setup_modules()
+    net.to(device)
+
     summary(net, (3, 32, 32))
 
     train_network(net)
