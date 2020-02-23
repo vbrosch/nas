@@ -292,7 +292,8 @@ def _get_best_models(cells: List[Cell], models: List[Model], accuracies: List[fl
     :param beam_size:
     :return:
     """
-    assert len(cells) == len(models) == len(accuracies)
+    assert len(cells) == len(models) == len(accuracies), 'len(cells)={}, len(models)={}, len(accuracies)={}'.format(
+        len(cells), len(models), len(accuracies))
     models_with_acc = sorted(zip(cells, models, accuracies), key=lambda x: x[-1], reverse=True)
 
     return models_with_acc[:beam_size]
