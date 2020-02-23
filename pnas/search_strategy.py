@@ -163,6 +163,8 @@ def _build_datasets(models: List[List[Model]], targets: List[List[float]]) -> (D
     train_dataset = PNASDataset(train_model, train_accuracies)
     validation_dataset = PNASDataset(validation_model, validation_accuracies, train=False)
 
+    print("Surrogate train={}, valid={}".format(len(train_dataset.inputs), len(validation_dataset.inputs)))
+
     train_queue = torch.utils.data.DataLoader(
         train_dataset, batch_size=SURROGATE_BATCH_SIZE, shuffle=True, pin_memory=True)
     validation_queue = torch.utils.data.DataLoader(
@@ -192,6 +194,8 @@ def _validate_surrogate_function(model: Surrogate, validate_queue: DataLoader) -
 
             targets.append(surrogate_target)
             predictions.append(predict_value)
+
+    print("Validation targets: {}, predictions={}".format(len(targets), len(predictions)))
 
     return _pairwise_accuracy(targets, predictions)
 
