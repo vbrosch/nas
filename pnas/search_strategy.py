@@ -249,9 +249,14 @@ def _surrogate_infer(surrogate: Surrogate, models: List[Model]) -> List[float]:
     for step, sample in enumerate(infer_set):
         surrogate_in = sample['surrogate_input'].to(device)
         acc = surrogate(surrogate_in)
+
+        print(acc)
+        print(acc.shape)
+
         acc = acc.view(-1)
 
         print(acc)
+        print(acc.shape)
 
     return acc
 
