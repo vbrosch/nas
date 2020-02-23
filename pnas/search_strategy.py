@@ -21,7 +21,7 @@ from pnas.pnas_utilities import _expand_cells, _get_normal_and_reduction_cells, 
     _to_architecture_tensor
 from pnas.surrogate_function import Surrogate
 
-RATIO = 0.9
+RATIO = 0.8
 EPOCHS = 0
 SURROGATE_BATCH_SIZE = 32
 SURROGATE_EPOCHS = 250
@@ -308,7 +308,7 @@ def progressive_neural_architecture_search(max_num_blocks: int, max_epochs: int,
     EPOCHS = max_epochs
 
     cells = [_expand_cells([])]
-    cells[0] = cells[0][:32]
+    cells[0] = cells[0][:4]
     normal_and_reduction_cell_combinations = _get_normal_and_reduction_cells(cells[0])
 
     models = []
