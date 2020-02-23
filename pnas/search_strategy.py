@@ -195,8 +195,6 @@ def _validate_surrogate_function(model: Surrogate, validate_queue: DataLoader) -
             targets.append(surrogate_target)
             predictions.append(predict_value)
 
-    print("Validation targets: {}, predictions={}".format(len(targets), len(predictions)))
-
     return _prediction_accuracy(targets, predictions)
 
 
@@ -208,12 +206,11 @@ def _train_surrogate_function(model: Surrogate, models: List[List[Model]], accur
     :return:
     """
     train_queue, validate_queue = _build_datasets(models, accuracies)
-
-    model.train()
-
     loss = sys.maxsize
 
     for epoch in range(SURROGATE_EPOCHS):
+        model.train()
+
         for step, sample in enumerate(train_queue):
             surrogate_input = sample['surrogate_input'].to(device)
             surrogate_target = sample['surrogate_target'].to(device)
