@@ -17,7 +17,7 @@ from config import device
 from modules.cell import Cell
 from modules.model import Model
 from pnas import pnas_utilities
-from pnas.pnas_utilities import _expand_cells, _get_normal_and_reduction_cells, PNASDataset, _pairwise_accuracy, \
+from pnas.pnas_utilities import _expand_cells, _get_normal_and_reduction_cells, PNASDataset, _prediction_accuracy, \
     _to_architecture_tensor
 from pnas.surrogate_function import Surrogate
 
@@ -197,7 +197,7 @@ def _validate_surrogate_function(model: Surrogate, validate_queue: DataLoader) -
 
     print("Validation targets: {}, predictions={}".format(len(targets), len(predictions)))
 
-    return _pairwise_accuracy(targets, predictions)
+    return _prediction_accuracy(targets, predictions)
 
 
 def _train_surrogate_function(model: Surrogate, models: List[List[Model]], accuracies: List[List[float]],

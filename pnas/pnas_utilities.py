@@ -12,19 +12,16 @@ from search_space import Operation
 MAX_NUMBER_OF_BLOCKS_PER_CELL = 0
 
 
-def _pairwise_accuracy(la, lb):
-    n = len(la)
-    assert n == len(lb)
-    total = 0
-    count = 0
-    for i in range(n):
-        for j in range(i + 1, n):
-            if la[i] >= la[j] and lb[i] >= lb[j]:
-                count += 1
-            if la[i] < la[j] and lb[i] < lb[j]:
-                count += 1
-            total += 1
-    return float(count) / total
+def _prediction_accuracy(inputs, targets) -> float:
+    n = len(inputs)
+    assert n == len(targets)
+
+    mse = torch.nn.MSELoss()
+
+    la_tensor = torch.FloatTensor(inputs)
+    lb_tensor = torch.FloatTensor(targets)
+
+    return mse(la_tensor, lb_tensor).mean().item()
 
 
 def _get_input_word(input_num: int) -> str:
