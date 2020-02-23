@@ -251,6 +251,8 @@ def _surrogate_infer(surrogate: Surrogate, models: List[Model]) -> List[float]:
         acc = surrogate(surrogate_in)
         acc = acc.view(-1)
 
+        print(acc)
+
     return acc
 
 
