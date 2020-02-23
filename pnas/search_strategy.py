@@ -256,9 +256,6 @@ def _surrogate_infer(surrogate: Surrogate, models: List[Model]) -> List[float]:
         acc = acc.view(-1).tolist()
         predictions.extend(acc)
 
-        print(acc)
-        print(acc.shape)
-
     print(len(predictions))
     return predictions
 
