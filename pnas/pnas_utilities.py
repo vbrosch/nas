@@ -187,8 +187,7 @@ class PNASDataset(torch.utils.data.Dataset):
             }
         else:
             sample = {
-                'surrogate_input': torch.LongTensor(surrogate_input),
-                'decoder_target': torch.LongTensor(surrogate_input),
+                'surrogate_input': torch.LongTensor(surrogate_input)
             }
             if surrogate_target is not None:
                 sample['surrogate_target'] = torch.FloatTensor(surrogate_target)
