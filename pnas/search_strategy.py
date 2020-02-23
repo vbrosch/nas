@@ -240,10 +240,17 @@ def _surrogate_infer(surrogate: Surrogate, models: List[Model]) -> List[float]:
     :return:
     """
     surrogate.eval()
+    acc = []
+
     model_inputs = PNASDataset([_to_architecture_tensor(model) for model in models], train=False)
     infer_set = torch.utils.data.DataLoader(
         model_inputs, batch_size=SURROGATE_BATCH_SIZE, shuffle=False, pin_memory=True)
-    acc = surrogate(infer_set)
+
+    for step, sample in infer_set:
+        surrogate_in = sample['surrogate_input'].to(device)
+        acc = surrogate(surrogate_in)
+
+        print('acc: {}'.format(acc))
 
     return acc
 
