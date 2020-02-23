@@ -240,7 +240,7 @@ def _surrogate_infer(surrogate: Surrogate, models: List[Model]) -> List[float]:
     :return:
     """
     surrogate.eval()
-    acc = []
+    predictions = []
 
     model_inputs = PNASDataset([_to_architecture_tensor(model) for model in models], train=False)
     infer_set = torch.utils.data.DataLoader(
@@ -253,12 +253,14 @@ def _surrogate_infer(surrogate: Surrogate, models: List[Model]) -> List[float]:
         print(acc)
         print(acc.shape)
 
-        acc = acc.view(-1)
+        acc = acc.view(-1).tolist()
+        predictions.extend(acc)
 
         print(acc)
         print(acc.shape)
 
-    return acc
+    print(len(predictions))
+    return predictions
 
 
 def _cell_combinations_to_cnn(cell_combinations: List[Tuple[Cell, Cell]]) -> List[Model]:
