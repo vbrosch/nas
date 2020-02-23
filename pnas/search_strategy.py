@@ -241,6 +241,8 @@ def _surrogate_infer(surrogate: Surrogate, models: List[Model]) -> List[float]:
     """
     acc = []
 
+    surrogate.eval()
+
     for model in models:
         model_tensor = torch.LongTensor(_to_architecture_tensor(model))
         model_tensor = model_tensor.to(device)
