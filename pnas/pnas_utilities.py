@@ -102,7 +102,7 @@ def _expand_cell(cell: Cell) -> List[Cell]:
     for block in possible_blocks:
         tmp_cell = copy.deepcopy(cell)
         tmp_cell.blocks.append(block)
-        expanded_cells.append(block)
+        expanded_cells.append(tmp_cell)
 
     return expanded_cells
 
