@@ -242,8 +242,8 @@ def _surrogate_infer(surrogate: Surrogate, models: List[Model]) -> List[float]:
     acc = []
 
     for model in models:
-        model_str = model.normal_cell.__str__() + model.normal_cell.__str__()
-        acc.append(surrogate(model_str))
+        model_tensor = torch.LongTensor(_to_architecture_tensor(model))
+        acc.append(surrogate(model_tensor))
 
     return acc
 
