@@ -52,7 +52,6 @@ def train_and_evaluate_network(net: Model) -> float:
     :param net:
     :return:
     """
-    net.setup_modules()
     net.to(device)
 
     summary(net, (3, 32, 32))
@@ -250,13 +249,9 @@ def _surrogate_infer(surrogate: Surrogate, models: List[Model]) -> List[float]:
         surrogate_in = sample['surrogate_input'].to(device)
         acc = surrogate(surrogate_in)
 
-        print(acc)
-        print(acc.shape)
-
         acc = acc.view(-1).tolist()
         predictions.extend(acc)
 
-    print(len(predictions))
     return predictions
 
 
@@ -272,6 +267,8 @@ def _cell_combinations_to_cnn(cell_combinations: List[Tuple[Cell, Cell]]) -> Lis
         m = Model()
         m.normal_cell = normal_cell
         m.reduction_cell = reduction_cell
+
+        m.setup_modules()
 
         models.append(m)
 
@@ -356,6 +353,9 @@ def progressive_neural_architecture_search(max_num_blocks: int, max_epochs: int,
 
         remaining_models = _get_best_models(cells[block_size], models[block_size], predictions, beam_size)
         print("Reduced to {} models according to their accuracy.".format(len(remaining_models)))
+
+        cells[block_size] = remaining_models[0]
+        models[block_size] = remaining_models[1]
 
         print("Training these architectures in order to update the surrogate.")
         accuracies.append([train_and_evaluate_network(m) for m in models[block_size]])
