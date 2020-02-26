@@ -125,7 +125,7 @@ def evaluate_architecture(net: Model) -> float:
     print('The network achieved the following accuracy: {}'.format(accuracy))
 
     with open('{}/architectures.csv'.format(OUTPUT_DIRECTORY), 'a+') as fd:
-        fd.write('{} {},{}'.format(normal_cell_str, reduction_cell_str, accuracy))
+        fd.write('{} {},{}\n'.format(normal_cell_str, reduction_cell_str, accuracy))
 
     print("---")
 
@@ -191,8 +191,8 @@ def _validate_surrogate_function(model: Surrogate, validate_queue: DataLoader) -
 
             predict_value = model(surrogate_input)
 
-            targets.append(surrogate_target)
-            predictions.append(predict_value)
+            targets += surrogate_target.data.squeeze().tolist()
+            predictions += predict_value.data.squeeze().tolist()
 
     return _prediction_accuracy(targets, predictions)
 
@@ -315,7 +315,6 @@ def progressive_neural_architecture_search(max_num_blocks: int, max_epochs: int,
     EPOCHS = max_epochs
 
     cells = [_expand_cells([])]
-    cells[0] = cells[0][:4]
     normal_and_reduction_cell_combinations = _get_normal_and_reduction_cells(cells[0])
 
     models = []
@@ -354,8 +353,8 @@ def progressive_neural_architecture_search(max_num_blocks: int, max_epochs: int,
         remaining_models = _get_best_models(cells[block_size], models[block_size], predictions, beam_size)
         print("Reduced to {} models according to their accuracy.".format(len(remaining_models)))
 
-        cells[block_size] = remaining_models[0]
-        models[block_size] = remaining_models[1]
+        cells[block_size] = list(map(lambda x: x[0], remaining_models))
+        models[block_size] = list(map(lambda x: x[1], remaining_models))
 
         print("Training these architectures in order to update the surrogate.")
         accuracies.append([train_and_evaluate_network(m) for m in models[block_size]])

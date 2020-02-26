@@ -198,6 +198,9 @@ def regularized_evolution(cycles, population_size, sample_size):
 
         # Create the child model and store it.
         child = mutate_arch(parent)
+
+        child.accuracy = train_and_eval(child)
+
         population.append(child)
         history.append(child)
 

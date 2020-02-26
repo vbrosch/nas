@@ -66,7 +66,10 @@ class Cell(nn.Module):
 
             block_used_as_input += [block.first_input_block, block.second_input_block]
 
-        output_blocks = set(range(search_space.NUMBER_OF_BLOCKS_PER_CELL + 2)) - set(block_used_as_input)
+        output_blocks = set(range(search_space.NUMBER_OF_BLOCKS_PER_CELL + 1)) - set(block_used_as_input)
+
+        if len(output_blocks) == 0:
+            output_blocks = [0]
 
         if len(output_blocks) > 1:
             output_blocks_sorted = sorted(output_blocks, key=lambda x: tensors[x].shape,
@@ -104,11 +107,11 @@ class Cell(nn.Module):
         graph = Digraph()
         graph.graph_attr['label'] = title
 
-        block_color = 'chartreuse'
-        op_color = 'cadetblue1'
+        block_color = 'gold'
+        op_color = 'darkolivegreen3'
 
-        graph.node('block-0', 'Input 0', color=block_color, style='filled')
-        graph.node('block-1', 'Input 1', color=block_color, style='filled')
+        graph.node('block-0', 'Input 0', color=block_color, style='filled', shape='box')
+        graph.node('block-1', 'Input 1', color=block_color, style='filled', shape='box')
 
         blocks_used_as_input = []
 
@@ -118,14 +121,15 @@ class Cell(nn.Module):
             first_input_op_node = 'block-{}-op-{}'.format(block.block_number, 1)
             second_input_op_node = 'block-{}-op-{}'.format(block.block_number, 2)
 
-            graph.node(first_input_op_node, block.first_input_op.__str__(), color=op_color, style='filled')
-            graph.node(second_input_op_node, block.second_input_op.__str__(), color=op_color, style='filled')
+            graph.node(first_input_op_node, block.first_input_op.__str__(), color=op_color, style='filled', shape='box')
+            graph.node(second_input_op_node, block.second_input_op.__str__(), color=op_color, style='filled',
+                       shape='box')
 
             graph.edge('block-{}'.format(block.first_input_block), first_input_op_node)
             graph.edge('block-{}'.format(block.second_input_block), second_input_op_node)
 
             graph.node('block-{}'.format(block.block_number), 'Block-{} [cat]'.format(block.block_number),
-                       color=block_color, style='filled')
+                       color=block_color, style='filled', shape='box')
 
             graph.edge(first_input_op_node, 'block-{}'.format(block.block_number))
             graph.edge(second_input_op_node, 'block-{}'.format(block.block_number))
@@ -134,7 +138,7 @@ class Cell(nn.Module):
 
         outputs = list(set(range(len(self.blocks) + 2)) - set(blocks_used_as_input))
 
-        graph.node('output', 'Output', color=block_color, style='filled')
+        graph.node('output', 'Output', color=block_color, style='filled', shape='box')
 
         for output_block in outputs:
             graph.edge('block-{}'.format(output_block), 'output')
