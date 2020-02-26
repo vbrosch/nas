@@ -163,6 +163,12 @@ def _to_architecture_tensor(model: Model) -> List[int]:
 
     tokens = [int(t) for t in architecture_tokens]
 
+    expected_block_count = 2 * MAX_NUMBER_OF_BLOCKS_PER_CELL * 4
+
+    # apply padding
+    if len(tokens) < expected_block_count:
+        tokens += [-1] * (expected_block_count - len(tokens))
+
     return tokens
 
 
